@@ -12,6 +12,8 @@
    複勝オッズの下限が1.2倍未満の馬は買わない。
    武豊と、検証で両期間とも100%を超えた騎手（岩田康誠・団野大成・戸崎圭太・田辺裕信）は
    「参考（買わない）」として表示する。
+   前走で最初のコーナーを先頭集団（2番手以内か、頭数の2割以内）で回った馬には「逃げ先行」の印を付ける
+   （検証では指定4騎手×逃げ先行がさらに良かったが件数が少ないため、印だけ付けて様子を見る）。
 4. picks.json（週ごとの記録）と picks.html を出力する。
 
 全レースでの検証（5,256レース、前半〜2025-09-05／後半）：指定4騎手×期待値1.0以上は
@@ -79,6 +81,32 @@ def load_archive_races(archive: Path) -> "OrderedDict[str, List[dict]]":
             "place_pay": fuku[rid].get(h["umaban"], ""), "jockey": h["jockey"],
         })
     return OrderedDict(sorted(races.items()))
+
+
+def last_run_styles(archive: Path) -> Dict[str, str]:
+    """馬名→前走の位置取り（逃げ先行／中団／差し追込）。前走の最初のコーナー順位と頭数で決める。"""
+    rows = []
+    for f in sorted(glob.glob(str(archive / "horses" / "*.csv"))):
+        with open(f, encoding="utf-8-sig", newline="") as fh:
+            rows.extend(csv.DictReader(fh))
+    runners: Dict[str, int] = defaultdict(int)
+    for h in rows:
+        runners[h["race_id"]] += 1
+    last: Dict[str, tuple] = {}
+    for h in rows:
+        name, cf = (h.get("horse_name") or "").strip(), (h.get("corner_first") or "").strip()
+        if not name or not cf.isdigit():
+            continue
+        key = (h["date"], h["race_id"])
+        if name not in last or key > last[name][0]:
+            last[name] = (key, int(cf), runners[h["race_id"]])
+    return {name: style_of(cf, n) for name, (_, cf, n) in last.items()}
+
+
+def style_of(corner_first: int, runners: int) -> str:
+    if corner_first <= max(2, round(runners * 0.2)):
+        return "逃げ先行"
+    return "中団" if corner_first <= runners * 0.6 else "差し追込"
 
 
 # ---------------------------------------------------------------- JRA
@@ -213,6 +241,7 @@ def render(store: dict, now: str) -> str:
         "@media (prefers-color-scheme:dark){:root{--bg:#111;--fg:#eee;--mut:#aaa;--line:#333;--acc:#4fc79c}}"
         "body{background:var(--bg);color:var(--fg);font-family:system-ui,sans-serif;margin:0 auto;max-width:860px;padding:16px}"
         "table{border-collapse:collapse;width:100%;font-size:14px}th,td{border-bottom:1px solid var(--line);padding:6px 4px;text-align:left}"
+        ".tag{display:inline-block;margin-left:4px;padding:0 4px;border:1px solid var(--acc);border-radius:3px;color:var(--acc);font-size:12px}"
         ".n{text-align:right}.mut{color:var(--mut);font-size:13px}.buy{color:var(--acc);font-weight:600}.scroll{overflow-x:auto}</style></head><body>",
         "<h1>週末の買い目（期待値派×騎手）</h1>",
         f"<p class='mut'>更新 {escape(now)}（JST）。全レースが対象。期待値1.0以上・単勝50倍未満で、"
@@ -220,6 +249,7 @@ def render(store: dict, now: str) -> str:
         "1頭なら3,000円、2頭以上なら、どれが当たっても3,000円を上回って戻るように複勝オッズに合わせて割り振ります。"
         "複勝オッズの下限が1.2倍未満の馬は買いません。"
         "「参考」は武豊・岩田康誠・団野大成・戸崎圭太・田辺裕信で、成績を追うだけで買いません。"
+        "「逃げ先行」は前走で最初のコーナーを先頭集団で回った馬の印です（検証では成績が良かったが件数が少ないので、今は買い方は変えません）。"
         "オッズは取得時点のもので発走までに変わります。全5,256レースの検証（確定オッズ）では、この賭け方で前半104%・後半116%（135レース）でしたが、"
         "保証ではありません。</p>",
         "<p class='mut'><a href='./'>ダッシュボードへ戻る</a></p>",
@@ -237,7 +267,7 @@ def render(store: dict, now: str) -> str:
             res = c.get("result", "")
             body.append(
                 f"<tr><td>{d.month}/{d.day}({wd[d.weekday()]})</td><td>{escape(c['venue'])}{c['race_no']}R</td>"
-                f"<td>{escape(c['horse_no'])} {escape(c['horse_name'])}</td><td>{escape(c['jockey'])}</td>"
+                f"<td>{escape(c['horse_no'])} {escape(c['horse_name'])}{"<span class='tag'>逃げ先行</span>" if c.get('style') == '逃げ先行' else ''}</td><td>{escape(c['jockey'])}</td>"
                 f"<td class='n'>{escape(c['win_odds'])}</td><td class='n'>{escape(c['place_odds_min'])}-{escape(c['place_odds_max'])}</td>"
                 f"<td class='n'>{c['expected_value']:.2f}</td>"
                 f"<td class='{'buy' if c['stake'] else 'mut'}'>{bet_label(c)}</td>"
@@ -258,6 +288,7 @@ def run(archive: Path, out: Path, dates: List[str], client: Optional[JraClient] 
     client = client or JraClient()
     races = load_archive_races(archive)
     model = ev.train(races)
+    styles = last_run_styles(archive)
     print(f"学習: {model.train_races if model else 0}レース")
     store_path = out / "picks.json"
     store = json.loads(store_path.read_text(encoding="utf-8")) if store_path.exists() else {}
@@ -278,7 +309,8 @@ def run(archive: Path, out: Path, dates: List[str], client: Optional[JraClient] 
         # 同じレースの古い買い目は最新のオッズで置き換える（確定済みの買いは残す）
         for k in [k for k, c in wk["picks"].items() if c["race_id"] == rid and not c.get("locked")]:
             del wk["picks"][k]
-        cands = [dict(c, group=jockey_group(c["jockey"])) for c in evaluate_race(rows, model)]
+        cands = [dict(c, group=jockey_group(c["jockey"]), style=styles.get(c["horse_name"].strip(), ""))
+                 for c in evaluate_race(rows, model)]
         for g in ("bet", "watch"):
             for c in sorted((c for c in cands if c["group"] == g), key=lambda c: -c["expected_value"])[:3]:
                 wk["picks"][f"{rid}-{c['horse_no']}"] = dict(c, **{k: info[k] for k in ("race_id", "date", "venue", "race_no")})
