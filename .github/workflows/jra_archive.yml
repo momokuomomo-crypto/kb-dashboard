@@ -19,9 +19,6 @@ on:
       only:
         description: "絞り込み（空=全レース / shinba / graded）"
         required: false
-  push:
-    branches: [claude/project-thread-2ekc4a]
-    paths: [collector/backfill_request.txt]
 
 concurrency:
   group: jra-archive-writer
@@ -32,7 +29,6 @@ permissions:
 
 jobs:
   archive:
-    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 350
     steps:
@@ -60,30 +56,3 @@ jobs:
       - name: Pedigree (new horses)
         working-directory: collector
         run: python -m jra_archive.main pedigree --archive $GITHUB_WORKSPACE/archive --git-push --budget-min 90
-
-  # 一時的な過去分の取得（2026/5〜10の重賞のみ＋グレード補完）。
-  backfill:
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    timeout-minutes: 350
-    strategy:
-      max-parallel: 1
-      fail-fast: false
-      matrix:
-        include:
-          - {from: "2026-05-01", to: "2026-10-31", extra: "--graded-only"}
-          - {from: "2024-11-01", to: "2026-11-23", extra: "FIX"}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: pip install beautifulsoup4 requests
-      - run: collector/jra_archive/prepare_worktree.sh archive
-      - working-directory: collector
-        run: |
-          if [ "${{ matrix.extra }}" = "FIX" ]; then
-            python -m jra_archive.main fix-grades --archive $GITHUB_WORKSPACE/archive --git-push
-          else
-            python -m jra_archive.main collect --archive $GITHUB_WORKSPACE/archive --git-push --budget-min 320 --from ${{ matrix.from }} --to ${{ matrix.to }} ${{ matrix.extra }}
-          fi
