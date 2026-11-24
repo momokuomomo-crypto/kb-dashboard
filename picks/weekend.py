@@ -237,6 +237,18 @@ def weekend_key(date: str) -> str:
     return (d - timedelta(days=(d.weekday() - 5) % 7)).strftime("%Y%m%d")  # その週の土曜
 
 
+def odds_line(c: dict) -> str:
+    """直前チェック用：複勝オッズ下限がいくつまで下がったら見送り／いくつ以上なら12,000円か（他の条件は今のまま、の目安）。"""
+    if c.get("group") != "bet" or not c.get("place_odds_min"):
+        return ""
+    plo, e = float(c["place_odds_min"]), c["expected_value"]
+    skip = max(MIN_PLACE_ODDS, plo * BET_MIN_EV / e)
+    top = BUDGET_TIERS[0]
+    if e < BET_MIN_EV:
+        return f"{skip:.1f}以上になれば{race_budget(BET_MIN_EV):,}円"
+    return f"{skip:.1f}未満は見送り／{plo * top[0] / e:.1f}以上で{top[1]:,}円"
+
+
 def bet_label(c: dict) -> str:
     return f"複勝{c['stake']:,}円" if c.get("stake") else "参考"
 
@@ -261,7 +273,9 @@ def render(store: dict, now: str) -> str:
         "「参考」は武豊・岩田康誠・団野大成・戸崎圭太・田辺裕信で、成績を追うだけで買いません。"
         "「逃げ先行」は前走で最初のコーナーを先頭集団で回った馬の印です（検証では成績が良かったが件数が少ないので、今は買い方は変えません）。"
         "オッズは取得時点のもので発走までに変わります。全5,256レースの検証（確定オッズ）では、この賭け方で前半152%・後半120%（67レース）でしたが、"
-        "保証ではありません。</p>",
+        "保証ではありません。</p>"
+        "<p class='mut'>発走直前の確認：「直前の目安」は、複勝オッズの下限（例 1.5-2.3倍なら1.5）がこの値を下回ったら見送り、"
+        "上の値以上なら12,000円、という目安です（期待値は複勝オッズにほぼ比例するとして計算）。同じレースで2頭買う場合は割り振りも変わるので、ページの再更新（当日9時・12時）も見てください。</p>",
         "<p class='mut'><a href='./'>ダッシュボードへ戻る</a></p>",
     ]
     for wk in sorted(store, reverse=True):
@@ -280,13 +294,13 @@ def render(store: dict, now: str) -> str:
                 f"<td>{escape(c['horse_no'])} {escape(c['horse_name'])}{"<span class='tag'>逃げ先行</span>" if c.get('style') == '逃げ先行' else ''}</td><td>{escape(c['jockey'])}</td>"
                 f"<td class='n'>{escape(c['win_odds'])}</td><td class='n'>{escape(c['place_odds_min'])}-{escape(c['place_odds_max'])}</td>"
                 f"<td class='n'>{c['expected_value']:.2f}</td>"
-                f"<td class='{'buy' if c['stake'] else 'mut'}'>{bet_label(c)}</td>"
+                f"<td class='{'buy' if c['stake'] else 'mut'}'>{bet_label(c)}</td><td class='mut'>{odds_line(c)}</td>"
                 f"<td>{escape(res)}</td></tr>"
             )
         total = sum(c["stake"] for c in rows)
         parts.append(
             f"<p>購入 {sum(1 for c in rows if c['stake'])}点・{total:,}円</p><div class='scroll'><table><thead><tr><th>日付</th><th>レース</th>"
-            "<th>馬</th><th>騎手</th><th class='n'>単勝</th><th class='n'>複勝</th><th class='n'>期待値</th><th>買い</th>"
+            "<th>馬</th><th>騎手</th><th class='n'>単勝</th><th class='n'>複勝</th><th class='n'>期待値</th><th>買い</th><th>直前の目安（複勝下限）</th>"
             f"<th>結果</th></tr></thead><tbody>{''.join(body)}</tbody></table></div>"
         )
     parts.append("</body></html>")
