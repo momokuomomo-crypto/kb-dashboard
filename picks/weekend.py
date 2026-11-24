@@ -256,7 +256,7 @@ def bet_label(c: dict) -> str:
 def render(store: dict, now: str) -> str:
     wd = "月火水木金土日"
     parts = [
-        "<!doctype html><html lang='ja'><head><meta charset='utf-8'>",
+        "<!doctype html><html lang='ja'><head><meta charset='utf-8'><meta name='robots' content='noindex,nofollow'>",
         "<meta name='viewport' content='width=device-width,initial-scale=1'><title>週末の買い目</title>",
         "<style>:root{--bg:#fff;--fg:#1a1a1a;--mut:#666;--line:#ddd;--acc:#0b6e4f}"
         "@media (prefers-color-scheme:dark){:root{--bg:#111;--fg:#eee;--mut:#aaa;--line:#333;--acc:#4fc79c}}"
