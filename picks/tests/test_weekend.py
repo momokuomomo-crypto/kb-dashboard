@@ -85,6 +85,32 @@ class TestAllocate(unittest.TestCase):
         self.assertEqual([x["stake"] for x in c], [3000, 0])
 
 
+class TestStyle(unittest.TestCase):
+    def test_style_of(self):
+        self.assertEqual(weekend.style_of(2, 8), "逃げ先行")
+        self.assertEqual(weekend.style_of(4, 18), "逃げ先行")
+        self.assertEqual(weekend.style_of(8, 16), "中団")
+        self.assertEqual(weekend.style_of(12, 16), "差し追込")
+
+    def test_last_run_styles_uses_latest_run(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "horses").mkdir()
+            with open(root / "horses/202501.csv", "w", encoding="utf-8", newline="") as fh:
+                w = csv.writer(fh)
+                w.writerow(["race_id", "date", "horse_name", "corner_first"])
+                for i in range(10):
+                    w.writerow(["A", "20250105", f"X{i}", str(i + 1)])
+                    w.writerow(["B", "20250112", f"Y{i}", str(i + 1)])
+                w.writerow(["A", "20250105", "Z", "1"])
+                w.writerow(["B", "20250112", "Z", "10"])
+                w.writerow(["B", "20250112", "W", ""])
+            s = weekend.last_run_styles(root)
+            self.assertEqual(s["Z"], "差し追込")
+            self.assertEqual(s["X0"], "逃げ先行")
+            self.assertNotIn("W", s)
+
+
 class TestRun(unittest.TestCase):
     def test_run_writes_json_and_html(self):
         with tempfile.TemporaryDirectory() as tmp:
