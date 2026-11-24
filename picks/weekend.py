@@ -147,7 +147,8 @@ def discover(client: JraClient, dates: List[str]) -> Dict[str, dict]:
 
 
 def evaluate_race(rows: List[dict], model) -> List[dict]:
-    params = replace(ev.EvParams(), ev_threshold=EV_THRESHOLD)
+    # 上限3頭は指定騎手の馬の中で数える（検証と同じ）ので、ここでは絞らない
+    params = replace(ev.EvParams(), ev_threshold=EV_THRESHOLD, max_bets_per_race=99)
     res = ev.evaluate([r for r in rows if r["win_odds"]], model, params)
     out = []
     for r in rows:
@@ -258,10 +259,10 @@ def run(archive: Path, out: Path, dates: List[str], client: Optional[JraClient] 
         # 同じレースの古い買い目は最新のオッズで置き換える（確定済みの買いは残す）
         for k in [k for k, c in wk["picks"].items() if c["race_id"] == rid and not c.get("locked")]:
             del wk["picks"][k]
-        for c in evaluate_race(rows, model):
-            g = jockey_group(c["jockey"])
-            if g:
-                wk["picks"][f"{rid}-{c['horse_no']}"] = dict(c, group=g, **{k: info[k] for k in ("race_id", "date", "venue", "race_no")})
+        cands = [dict(c, group=jockey_group(c["jockey"])) for c in evaluate_race(rows, model)]
+        for g in ("bet", "watch"):
+            for c in sorted((c for c in cands if c["group"] == g), key=lambda c: -c["expected_value"])[:3]:
+                wk["picks"][f"{rid}-{c['horse_no']}"] = dict(c, **{k: info[k] for k in ("race_id", "date", "venue", "race_no")})
     for wk in store.values():
         locked = sum(1 for c in wk["picks"].values() if c.get("locked") and c.get("stake"))
         select([c for c in wk["picks"].values() if not c.get("locked")], locked)
