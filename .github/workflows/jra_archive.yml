@@ -1,0 +1,58 @@
+name: JRA Archive (all races)
+
+# JRA全レース（重賞・非重賞・新馬戦）の結果・払戻金・確定オッズ・血統を
+# このリポジトリの jra-archive ブランチへ保存する（kb-project 06_08）。
+# 公開リポジトリなのでActionsは無料。JRAへは1秒1リクエストで取得する。
+# 毎週火曜7:30（JST）に直近8日分＋グレード補完＋新しい出走馬の血統（最大90分）。
+
+on:
+  schedule:
+    - cron: "30 22 * * 1" # 毎週月曜22:30 UTC = 火曜7:30 JST
+  workflow_dispatch:
+    inputs:
+      from:
+        description: "収集開始日（YYYY-MM-DD、省略時は終了日の7日前）"
+        required: false
+      to:
+        description: "収集終了日（YYYY-MM-DD、省略時は昨日）"
+        required: false
+      only:
+        description: "絞り込み（空=全レース / shinba / graded）"
+        required: false
+
+concurrency:
+  group: jra-archive-writer
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install beautifulsoup4 requests
+      - name: Prepare jra-archive worktree
+        run: collector/jra_archive/prepare_worktree.sh archive
+      - name: Collect
+        working-directory: collector
+        run: |
+          args="--archive $GITHUB_WORKSPACE/archive --git-push --budget-min 300"
+          if [ -n "${{ github.event.inputs.from }}" ]; then args="$args --from ${{ github.event.inputs.from }}"; fi
+          if [ -n "${{ github.event.inputs.to }}" ]; then args="$args --to ${{ github.event.inputs.to }}"; fi
+          case "${{ github.event.inputs.only }}" in
+            shinba) args="$args --shinba-only" ;;
+            graded) args="$args --graded-only" ;;
+          esac
+          python -m jra_archive.main collect $args
+      - name: Fill missing grades
+        working-directory: collector
+        run: python -m jra_archive.main fix-grades --archive $GITHUB_WORKSPACE/archive --git-push
+      - name: Pedigree (new horses)
+        working-directory: collector
+        run: python -m jra_archive.main pedigree --archive $GITHUB_WORKSPACE/archive --git-push --budget-min 90
