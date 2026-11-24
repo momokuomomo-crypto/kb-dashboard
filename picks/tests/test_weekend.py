@@ -87,6 +87,11 @@ class TestAllocate(unittest.TestCase):
         weekend.allocate(c)
         self.assertEqual([x["stake"] for x in c], [10000, 0])
 
+    def test_skips_ev_below_min(self):
+        c = [dict(group="bet", place_odds_min="2.0", expected_value=1.05)]
+        weekend.allocate(c)
+        self.assertEqual(c[0]["stake"], 0)
+
 
 class TestStyle(unittest.TestCase):
     def test_style_of(self):
