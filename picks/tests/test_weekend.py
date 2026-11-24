@@ -93,6 +93,14 @@ class TestAllocate(unittest.TestCase):
         self.assertEqual(c[0]["stake"], 0)
 
 
+class TestOddsLine(unittest.TestCase):
+    def test_odds_line(self):
+        c = dict(group="bet", place_odds_min="2.2", expected_value=1.21)
+        self.assertEqual(weekend.odds_line(c), "2.0未満は見送り／2.4以上で12,000円")
+        self.assertEqual(weekend.odds_line(dict(group="bet", place_odds_min="2.0", expected_value=1.0)), "2.2以上になれば6,000円")
+        self.assertEqual(weekend.odds_line(dict(group="watch", place_odds_min="2.0", expected_value=1.2)), "")
+
+
 class TestStyle(unittest.TestCase):
     def test_style_of(self):
         self.assertEqual(weekend.style_of(2, 8), "逃げ先行")
