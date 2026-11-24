@@ -7,14 +7,15 @@
    （kb-project 04_07。対象レースより前の確定レースのみで学習）。
 2. JRAのオッズページから、今日・明日（JST）の全レースの単勝・複勝オッズと騎手を取る。
 3. 期待値1.0以上・単勝50倍未満・指定騎手（M.デムーロ、C.デムーロ、ルメール、川田）の
-   馬を買い目にする。1点1,000円の複勝、週末の合計は5,000円まで（期待値の高い順）。
-   当たれば必ず賭け金を上回るよう、複勝オッズの下限が1.3倍未満の馬は買わない。
+   馬（1レース3頭まで）を買い目にする。複勝で1レース3,000円。2頭以上なら、どれが
+   当たってもそのレースの合計を上回って戻るように複勝オッズ下限の逆数で割り振る。
+   複勝オッズの下限が1.2倍未満の馬は買わない。
    武豊と、検証で両期間とも100%を超えた騎手（岩田康誠・団野大成・戸崎圭太・田辺裕信）は
    「参考（買わない）」として表示する。
 4. picks.json（週ごとの記録）と picks.html を出力する。
 
 全レースでの検証（5,256レース、前半〜2025-09-05／後半）：指定4騎手×期待値1.0以上は
-前半108%（82点）・後半111%（98点）。確定オッズでの検証なので、実際の購入時点の
+1レース3,000円のこの賭け方で前半104%・後半116%（135レース、+42,300円）。確定オッズでの検証なので、実際の購入時点の
 オッズとはずれがある。
 """
 
@@ -47,9 +48,8 @@ VENUES = {
 BET_JOCKEYS = ("M.デムーロ", "C.デムーロ", "ルメール", "川田")
 WATCH_JOCKEYS = ("武 豊", "岩田 康誠", "団野", "戸崎", "田辺")
 EV_THRESHOLD = 1.0
-MIN_PLACE_ODDS = 1.3
-STAKE = 1000
-WEEKEND_BUDGET = 5000
+MIN_PLACE_ODDS = 1.2
+RACE_BUDGET = 3000  # 1レースに賭ける金額
 
 
 # ---------------------------------------------------------------- 学習
@@ -159,14 +159,28 @@ def evaluate_race(rows: List[dict], model) -> List[dict]:
     return out
 
 
-def select(cands: List[dict], already: int) -> List[dict]:
-    """指定騎手の候補に、購入（1,000円）か参考かを付ける。週末合計は5,000円まで。"""
-    budget = max(WEEKEND_BUDGET - already * STAKE, 0) // STAKE
-    bet = sorted((c for c in cands if c["group"] == "bet" and float(c["place_odds_min"] or 0) >= MIN_PLACE_ODDS),
-                 key=lambda c: -c["expected_value"])
-    chosen = {id(c) for c in bet[:budget]}
+def allocate(cands: List[dict]) -> List[dict]:
+    """
+    1レース分の指定騎手の候補に購入額を付ける（1レース3,000円）。
+    1頭なら3,000円。2頭以上なら、どれが当たっても3,000円を上回って戻るように
+    複勝オッズ下限の逆数で割り振る（Σ1/オッズ下限 < 0.9 になるまで期待値の低い馬を外す）。
+    複勝オッズ下限が1.2倍未満の馬は買わない。参考の騎手は買わない。
+    """
     for c in cands:
-        c["stake"] = STAKE if id(c) in chosen else 0
+        c["stake"] = 0
+    legs = sorted((c for c in cands if c["group"] == "bet" and float(c["place_odds_min"] or 0) >= MIN_PLACE_ODDS),
+                  key=lambda c: -c["expected_value"])
+    while legs:
+        inv = [1 / float(c["place_odds_min"]) for c in legs]
+        if len(legs) == 1 or sum(inv) < 0.9:
+            stakes = [RACE_BUDGET * x / sum(inv) // 100 * 100 for x in inv]
+            stakes[0] += RACE_BUDGET - sum(stakes)
+            total = sum(stakes)
+            if all(float(c["place_odds_min"]) * y > total for c, y in zip(legs, stakes)):
+                for c, y in zip(legs, stakes):
+                    c["stake"] = int(y)
+                return cands
+        legs = legs[:-1]
     return cands
 
 
@@ -186,6 +200,10 @@ def weekend_key(date: str) -> str:
     return (d - timedelta(days=(d.weekday() - 5) % 7)).strftime("%Y%m%d")  # その週の土曜
 
 
+def bet_label(c: dict) -> str:
+    return f"複勝{c['stake']:,}円" if c.get("stake") else "参考"
+
+
 def render(store: dict, now: str) -> str:
     wd = "月火水木金土日"
     parts = [
@@ -198,10 +216,11 @@ def render(store: dict, now: str) -> str:
         ".n{text-align:right}.mut{color:var(--mut);font-size:13px}.buy{color:var(--acc);font-weight:600}.scroll{overflow-x:auto}</style></head><body>",
         "<h1>週末の買い目（期待値派×騎手）</h1>",
         f"<p class='mut'>更新 {escape(now)}（JST）。全レースが対象。期待値1.0以上・単勝50倍未満で、"
-        "M.デムーロ・C.デムーロ・ルメール・川田が乗る馬の複勝を1点1,000円、週末の合計5,000円まで"
-        "（期待値の高い順）。複勝オッズの下限が1.3倍未満の馬は、当たっても賭け金を下回るおそれがあるので買いません。"
+        "M.デムーロ・C.デムーロ・ルメール・川田が乗る馬の複勝を、1レース3,000円。"
+        "1頭なら3,000円、2頭以上なら、どれが当たっても3,000円を上回って戻るように複勝オッズに合わせて割り振ります。"
+        "複勝オッズの下限が1.2倍未満の馬は買いません。"
         "「参考」は武豊・岩田康誠・団野大成・戸崎圭太・田辺裕信で、成績を追うだけで買いません。"
-        "オッズは取得時点のもので発走までに変わります。全5,256レースの検証では前半108%・後半111%（180点）でしたが、"
+        "オッズは取得時点のもので発走までに変わります。全5,256レースの検証（確定オッズ）では、この賭け方で前半104%・後半116%（135レース）でしたが、"
         "保証ではありません。</p>",
         "<p class='mut'><a href='./'>ダッシュボードへ戻る</a></p>",
     ]
@@ -221,12 +240,12 @@ def render(store: dict, now: str) -> str:
                 f"<td>{escape(c['horse_no'])} {escape(c['horse_name'])}</td><td>{escape(c['jockey'])}</td>"
                 f"<td class='n'>{escape(c['win_odds'])}</td><td class='n'>{escape(c['place_odds_min'])}-{escape(c['place_odds_max'])}</td>"
                 f"<td class='n'>{c['expected_value']:.2f}</td>"
-                f"<td class='{'buy' if c['stake'] else 'mut'}'>{'複勝1,000円' if c['stake'] else '参考'}</td>"
+                f"<td class='{'buy' if c['stake'] else 'mut'}'>{bet_label(c)}</td>"
                 f"<td>{escape(res)}</td></tr>"
             )
         total = sum(c["stake"] for c in rows)
         parts.append(
-            f"<p>購入 {total // STAKE}点・{total:,}円</p><div class='scroll'><table><thead><tr><th>日付</th><th>レース</th>"
+            f"<p>購入 {sum(1 for c in rows if c['stake'])}点・{total:,}円</p><div class='scroll'><table><thead><tr><th>日付</th><th>レース</th>"
             "<th>馬</th><th>騎手</th><th class='n'>単勝</th><th class='n'>複勝</th><th class='n'>期待値</th><th>買い</th>"
             f"<th>結果</th></tr></thead><tbody>{''.join(body)}</tbody></table></div>"
         )
@@ -264,8 +283,12 @@ def run(archive: Path, out: Path, dates: List[str], client: Optional[JraClient] 
             for c in sorted((c for c in cands if c["group"] == g), key=lambda c: -c["expected_value"])[:3]:
                 wk["picks"][f"{rid}-{c['horse_no']}"] = dict(c, **{k: info[k] for k in ("race_id", "date", "venue", "race_no")})
     for wk in store.values():
-        locked = sum(1 for c in wk["picks"].values() if c.get("locked") and c.get("stake"))
-        select([c for c in wk["picks"].values() if not c.get("locked")], locked)
+        by_race = defaultdict(list)
+        for c in wk["picks"].values():
+            if not c.get("locked"):
+                by_race[c["race_id"]].append(c)
+        for cands in by_race.values():
+            allocate(cands)
     out.mkdir(parents=True, exist_ok=True)
     store_path.write_text(json.dumps(store, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     (out / "picks.html").write_text(render(store, now.strftime("%Y-%m-%d %H:%M")), encoding="utf-8")
