@@ -63,16 +63,26 @@ class TestParse(unittest.TestCase):
         self.assertEqual(weekend.weekend_key("20261129"), "20261128")
 
 
-class TestSelect(unittest.TestCase):
-    def test_budget_and_min_place_odds(self):
-        cands = [dict(group="bet", place_odds_min="2.0", expected_value=1.0 + i / 10) for i in range(7)]
-        cands.append(dict(group="bet", place_odds_min="1.1", expected_value=9.0))
-        cands.append(dict(group="watch", place_odds_min="3.0", expected_value=5.0))
-        weekend.select(cands, already=1)
-        self.assertEqual(sum(c["stake"] for c in cands), 4000)
-        self.assertEqual(cands[-1]["stake"], 0)
-        self.assertEqual(cands[-2]["stake"], 0)
-        self.assertEqual([c["stake"] for c in cands[3:7]], [1000] * 4)
+class TestAllocate(unittest.TestCase):
+    def test_single_pick_gets_whole_budget(self):
+        c = [dict(group="bet", place_odds_min="1.5", expected_value=1.1), dict(group="watch", place_odds_min="3", expected_value=2.0)]
+        weekend.allocate(c)
+        self.assertEqual([x["stake"] for x in c], [3000, 0])
+
+    def test_split_covers_total_and_skips_low_odds(self):
+        c = [dict(group="bet", place_odds_min="3.0", expected_value=1.2), dict(group="bet", place_odds_min="4.0", expected_value=1.1),
+             dict(group="bet", place_odds_min="1.1", expected_value=1.5)]
+        weekend.allocate(c)
+        total = sum(x["stake"] for x in c)
+        self.assertEqual(total, 3000)
+        self.assertEqual(c[2]["stake"], 0)
+        for x in c[:2]:
+            self.assertGreater(float(x["place_odds_min"]) * x["stake"], total)
+
+    def test_drops_legs_that_cannot_cover(self):
+        c = [dict(group="bet", place_odds_min="1.5", expected_value=1.3), dict(group="bet", place_odds_min="1.6", expected_value=1.1)]
+        weekend.allocate(c)
+        self.assertEqual([x["stake"] for x in c], [3000, 0])
 
 
 class TestRun(unittest.TestCase):
