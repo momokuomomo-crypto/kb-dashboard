@@ -1,8 +1,10 @@
 name: JRA Archive (all races)
 
 # JRA全レース（重賞・非重賞・新馬戦）の結果・払戻金・確定オッズ・血統を
-# このリポジトリの jra-archive ブランチへ保存する（kb-project 06_08）。
-# 公開リポジトリなのでActionsは無料。JRAへは1秒1リクエストで取得する。
+# 非公開の kb-project の jra-archive ブランチへ保存する（kb-project 06_08）。
+# 実行だけ公開リポジトリで行う（Actionsが無料）。データはこのリポジトリに置かない。
+# シークレット ARCHIVE_TOKEN = kb-project だけに Contents 読み書き権限を持つトークン。
+# ログには件数とレースIDだけを出す。JRAへは1秒1リクエストで取得する。
 # 毎週火曜7:30（JST）に直近8日分＋グレード補完＋新しい出走馬の血統（最大90分）。
 
 on:
@@ -25,7 +27,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   archive:
@@ -37,8 +39,18 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install beautifulsoup4 requests
-      - name: Prepare jra-archive worktree
-        run: collector/jra_archive/prepare_worktree.sh archive
+      - name: Checkout private archive (kb-project jra-archive)
+        uses: actions/checkout@v4
+        with:
+          repository: momokuomomo-crypto/kb-project
+          ref: jra-archive
+          path: archive
+          token: ${{ secrets.ARCHIVE_TOKEN }}
+          fetch-depth: 1
+      - name: Git identity
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
       - name: Collect
         working-directory: collector
         run: |

@@ -2,7 +2,8 @@ name: Weekend Picks (期待値派×騎手)
 
 # 週末の全レースから「期待値派×指定騎手」の複勝の買い目を出し、
 # picks.html / picks.json としてこのリポジトリ（GitHub Pages）に置く（picks/weekend.py）。
-# 公開リポジトリなのでActionsは無料。jra-archiveブランチの全レースで学習する。
+# 公開リポジトリなのでActionsは無料。非公開の kb-project の jra-archive ブランチ
+# （シークレット ARCHIVE_TOKEN で取得）の全レースで学習する。
 #   金・土 20:00 JST：翌日分（前日発売のオッズ）
 #   土・日 9:00 / 12:00 JST：当日分を最新オッズで更新
 
@@ -35,10 +36,15 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install beautifulsoup4 requests
-      - name: Fetch jra-archive
-        run: |
-          git fetch --depth 1 origin jra-archive
-          git worktree add archive FETCH_HEAD
+      - name: Fetch jra-archive (private kb-project)
+        uses: actions/checkout@v4
+        with:
+          repository: momokuomomo-crypto/kb-project
+          ref: jra-archive
+          path: archive
+          token: ${{ secrets.ARCHIVE_TOKEN }}
+          fetch-depth: 1
+          persist-credentials: false
       - name: Tests
         working-directory: picks
         run: python -m unittest discover -s tests -q
@@ -50,7 +56,7 @@ jobs:
           python -m weekend $args
       - name: Push
         run: |
-          git worktree remove --force archive
+          rm -rf archive
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add picks.html picks.json
