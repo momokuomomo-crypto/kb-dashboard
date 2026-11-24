@@ -276,7 +276,7 @@ def render(store: dict, now: str) -> str:
         "保証ではありません。</p>"
         "<p class='mut'>発走直前の確認：「直前の目安」は、複勝オッズの下限（例 1.5-2.3倍なら1.5）がこの値を下回ったら見送り、"
         "上の値以上なら12,000円、という目安です（期待値は複勝オッズにほぼ比例するとして計算）。同じレースで2頭買う場合は割り振りも変わるので、ページの再更新（当日9時・12時）も見てください。</p>",
-        "<p class='mut'><a href='./'>ダッシュボードへ戻る</a></p>",
+        "<p class='mut'><a href='./'>ダッシュボードへ戻る</a> ・ <a href='summary.html'>これまでのまとめ</a></p>",
     ]
     for wk in sorted(store, reverse=True):
         data = store[wk]
