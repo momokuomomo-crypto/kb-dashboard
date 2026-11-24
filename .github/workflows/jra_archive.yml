@@ -61,7 +61,7 @@ jobs:
         working-directory: collector
         run: python -m jra_archive.main pedigree --archive $GITHUB_WORKSPACE/archive --git-push --budget-min 90
 
-  # 一時的な過去分の取得（2026/5〜10。重賞を先に、続けて残り全レース）。
+  # 一時的な過去分の取得（2026/5〜10の重賞のみ＋グレード補完）。
   backfill:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
@@ -72,9 +72,6 @@ jobs:
       matrix:
         include:
           - {from: "2026-05-01", to: "2026-10-31", extra: "--graded-only"}
-          - {from: "2026-05-01", to: "2026-06-30", extra: ""}
-          - {from: "2026-07-01", to: "2026-08-31", extra: ""}
-          - {from: "2026-09-01", to: "2026-10-31", extra: ""}
           - {from: "2024-11-01", to: "2026-11-23", extra: "FIX"}
     steps:
       - uses: actions/checkout@v4
