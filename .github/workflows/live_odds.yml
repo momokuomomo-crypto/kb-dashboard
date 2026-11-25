@@ -1,0 +1,80 @@
+name: Live Odds (締切前オッズ)
+
+# 土・日・月 の開催日に、全レースの単勝・複勝オッズを発走10分前・5分前・3分前に記録する
+# （picks/live_odds.py）。保存先は非公開の kb-project の odds-live ブランチ（ARCHIVE_TOKEN）。
+# 公開リポジトリなのでActionsは無料。1日を午前・午後の2つのジョブに分ける（1ジョブ6時間まで）。
+# 開催がない日はすぐ終わる。
+
+on:
+  schedule:
+    - cron: "30 23 * * 5,6,0" # 土・日・月 8:30 JST
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "対象日（YYYYMMDD、省略時は今日 JST）"
+        required: false
+
+concurrency:
+  group: live-odds
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  morning:
+    runs-on: ubuntu-latest
+    timeout-minutes: 320
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install beautifulsoup4 requests
+      - name: Checkout private odds-live (kb-project)
+        uses: actions/checkout@v4
+        with:
+          repository: momokuomomo-crypto/kb-project
+          ref: odds-live
+          path: odds
+          token: ${{ secrets.ARCHIVE_TOKEN }}
+          fetch-depth: 1
+      - name: Record
+        working-directory: picks
+        env:
+          UNTIL: "13:30"
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          args="--out $GITHUB_WORKSPACE/odds --until $UNTIL --git-push"
+          if [ -n "${{ github.event.inputs.date }}" ]; then args="$args --date ${{ github.event.inputs.date }}"; fi
+          python -m live_odds $args
+  afternoon:
+    needs: morning
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 320
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install beautifulsoup4 requests
+      - name: Checkout private odds-live (kb-project)
+        uses: actions/checkout@v4
+        with:
+          repository: momokuomomo-crypto/kb-project
+          ref: odds-live
+          path: odds
+          token: ${{ secrets.ARCHIVE_TOKEN }}
+          fetch-depth: 1
+      - name: Record
+        working-directory: picks
+        env:
+          UNTIL: "17:30"
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          args="--out $GITHUB_WORKSPACE/odds --until $UNTIL --git-push"
+          if [ -n "${{ github.event.inputs.date }}" ]; then args="$args --date ${{ github.event.inputs.date }}"; fi
+          python -m live_odds $args
