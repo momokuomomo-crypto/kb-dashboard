@@ -67,17 +67,17 @@ class TestAllocate(unittest.TestCase):
     def test_single_pick_gets_whole_budget(self):
         c = [dict(group="bet", place_odds_min="1.5", expected_value=1.1), dict(group="watch", place_odds_min="3", expected_value=2.0)]
         weekend.allocate(c)
-        self.assertEqual([x["stake"] for x in c], [6000, 0])
+        self.assertEqual([x["stake"] for x in c], [3000, 0])
 
     def test_budget_tiers(self):
-        self.assertEqual([weekend.race_budget(e) for e in (1.0, 1.09, 1.1, 1.29, 1.3, 1.7)], [3000, 3000, 6000, 6000, 12000, 12000])
+        self.assertEqual([weekend.race_budget(e) for e in (1.0, 1.09, 1.1, 1.29, 1.3, 1.7)], [3000, 3000, 3000, 3000, 3000, 3000])
 
     def test_split_covers_total_and_skips_low_odds(self):
         c = [dict(group="bet", place_odds_min="3.0", expected_value=1.2), dict(group="bet", place_odds_min="4.0", expected_value=1.1),
              dict(group="bet", place_odds_min="1.1", expected_value=1.5)]
         weekend.allocate(c)
         total = sum(x["stake"] for x in c)
-        self.assertEqual(total, 6000)
+        self.assertEqual(total, 3000)
         self.assertEqual(c[2]["stake"], 0)
         for x in c[:2]:
             self.assertGreater(float(x["place_odds_min"]) * x["stake"], total)
@@ -85,7 +85,7 @@ class TestAllocate(unittest.TestCase):
     def test_drops_legs_that_cannot_cover(self):
         c = [dict(group="bet", place_odds_min="1.5", expected_value=1.3), dict(group="bet", place_odds_min="1.6", expected_value=1.1)]
         weekend.allocate(c)
-        self.assertEqual([x["stake"] for x in c], [12000, 0])
+        self.assertEqual([x["stake"] for x in c], [3000, 0])
 
     def test_skips_ev_below_min(self):
         c = [dict(group="bet", place_odds_min="2.0", expected_value=1.05)]
@@ -94,18 +94,18 @@ class TestAllocate(unittest.TestCase):
 
 
 class TestStyleDouble(unittest.TestCase):
-    def test_nige_doubles_budget(self):
+    def test_nige_keeps_flat_budget(self):
         c = [dict(group="bet", place_odds_min="2.0", expected_value=1.35, style="逃げ先行")]
         weekend.allocate(c)
-        self.assertEqual(c[0]["stake"], 24000)
-        self.assertEqual(weekend.odds_line(c[0]), "1.6未満は見送り／1.9以上で24,000円")
+        self.assertEqual(c[0]["stake"], 3000)
+        self.assertEqual(weekend.odds_line(c[0]), "1.6未満は見送り")
 
 
 class TestOddsLine(unittest.TestCase):
     def test_odds_line(self):
         c = dict(group="bet", place_odds_min="2.2", expected_value=1.21)
-        self.assertEqual(weekend.odds_line(c), "2.0未満は見送り／2.4以上で12,000円")
-        self.assertEqual(weekend.odds_line(dict(group="bet", place_odds_min="2.0", expected_value=1.0)), "2.2以上になれば6,000円")
+        self.assertEqual(weekend.odds_line(c), "2.0未満は見送り")
+        self.assertEqual(weekend.odds_line(dict(group="bet", place_odds_min="2.0", expected_value=1.0)), "2.2以上になれば3,000円")
         self.assertEqual(weekend.odds_line(dict(group="watch", place_odds_min="2.0", expected_value=1.2)), "")
 
 
