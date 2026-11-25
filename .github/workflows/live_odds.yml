@@ -1,13 +1,14 @@
 name: Live Odds (締切前オッズ)
 
-# 土・日・月 の開催日に、全レースの単勝・複勝オッズを発走10分前・5分前・3分前に記録する
+# 土・日・月 の開催日に、全レースの単勝・複勝オッズを、当日9時・12時と
+# 発走60分前・30分前・10分前・5分前・3分前に記録する
 # （picks/live_odds.py）。保存先は非公開の kb-project の odds-live ブランチ（ARCHIVE_TOKEN）。
 # 公開リポジトリなのでActionsは無料。1日を午前・午後の2つのジョブに分ける（1ジョブ6時間まで）。
 # 開催がない日はすぐ終わる。
 
 on:
   schedule:
-    - cron: "30 23 * * 5,6,0" # 土・日・月 8:30 JST
+    - cron: "0 23 * * 5,6,0" # 土・日・月 8:00 JST（9時の記録に間に合うよう早めに起動）
   workflow_dispatch:
     inputs:
       date:
@@ -24,7 +25,7 @@ permissions:
 jobs:
   morning:
     runs-on: ubuntu-latest
-    timeout-minutes: 320
+    timeout-minutes: 350
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -53,7 +54,7 @@ jobs:
     needs: morning
     if: always()
     runs-on: ubuntu-latest
-    timeout-minutes: 320
+    timeout-minutes: 350
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

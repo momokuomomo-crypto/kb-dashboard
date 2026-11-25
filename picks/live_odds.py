@@ -3,8 +3,8 @@
 
     python -m live_odds --out ../odds --until 13:30 [--git-push]
 
-その日（JST）の全レースについて、発走の10分前・5分前・3分前（JRAの発売締切は
-発走2分前）に単勝・複勝オッズページ（pw151）を取り、
+その日（JST）の全レースについて、当日9時・12時の時点と、発走の60分前・30分前・
+10分前・5分前・3分前（JRAの発売締切は発走2分前）に単勝・複勝オッズページ（pw151）を取り、
 odds_live/YYYYMMDD.csv に1頭1行で追記する。発走時刻はオッズページの「発走時刻」から読む。
 過去のレースの「締切前オッズ」はJRAに残らないので、記録は今後のレースだけ。
 確定オッズは jra-archive の horses/*.csv（tan_odds, fuku_min, fuku_max）にある。
@@ -25,8 +25,10 @@ from bs4 import BeautifulSoup
 from jra_client import JraClient
 from weekend import JST, discover, parse_odds_page
 
-SNAP_MINUTES = (10, 5, 3)  # 発走の何分前に取るか
-COLUMNS = ["race_id", "date", "venue", "race_no", "post_time", "minutes_before", "fetched_at",
+SNAP_MINUTES = (60, 30, 10, 5, 3)  # 発走の何分前に取るか
+SNAP_CLOCKS = ("09:00", "12:00")  # 当日のこの時刻にも全レース（発走前のもの）を取る
+CLOCK_LATE_MIN = 30  # 時刻の記録は30分遅れまで（ジョブの起動遅れ用）
+COLUMNS = ["race_id", "date", "venue", "race_no", "post_time", "point", "minutes_before", "fetched_at",
            "horse_no", "horse_name", "jockey", "win_odds", "place_odds_min", "place_odds_max"]
 TIME_RE = re.compile(r"(\d{1,2})時(\d{2})分")
 
@@ -41,12 +43,29 @@ def parse_post_time(html: str, date: str) -> Optional[datetime]:
     return d.replace(hour=int(m.group(1)), minute=int(m.group(2)), tzinfo=JST)
 
 
-def due_snapshots(post: datetime, now: datetime, taken: set) -> List[int]:
-    """今取るべき「発走N分前」。発走後は取らない。遅れて来たら一番近いものだけ取る。"""
+def due_snapshots(post: datetime, now: datetime, taken: set) -> List[str]:
+    """今取るべき時点（"60"〜"3" は発走N分前、"09:00" などは当日の時刻）。発走後は取らない。
+    発走前の分は遅れて来たら一番近いものだけ取る。"""
     if now >= post:
         return []
-    due = [m for m in SNAP_MINUTES if m not in taken and now >= post - timedelta(minutes=m)]
-    return due[-1:]  # 10分前を逃して5分前の時刻なら5分前だけ
+    out = []
+    for c in SNAP_CLOCKS:
+        h, m = map(int, c.split(":"))
+        at = post.replace(hour=h, minute=m)
+        if c not in taken and at <= now < at + timedelta(minutes=CLOCK_LATE_MIN) and at < post:
+            out.append(c)
+    due = [str(m) for m in SNAP_MINUTES if str(m) not in taken and now >= post - timedelta(minutes=m)]
+    return out + due[-1:]  # 10分前を逃して5分前の時刻なら5分前だけ
+
+
+def load_taken(out: Path, date: str) -> Dict[str, set]:
+    """同じ日に前のジョブが取った分（午前→午後の引き継ぎ）。"""
+    path = out / "odds_live" / f"{date}.csv"
+    taken: Dict[str, set] = {}
+    if path.exists():
+        for r in csv.DictReader(open(path, encoding="utf-8")):
+            taken.setdefault(r["race_id"], set()).add(r.get("point") or r.get("minutes_before"))
+    return taken
 
 
 def append_rows(out: Path, date: str, rows: List[dict]) -> None:
@@ -60,10 +79,11 @@ def append_rows(out: Path, date: str, rows: List[dict]) -> None:
         w.writerows(rows)
 
 
-def snapshot(client, info: dict, post: datetime, minutes: int, now: datetime, html: Optional[str] = None) -> List[dict]:
+def snapshot(client, info: dict, post: datetime, point: str, now: datetime, html: Optional[str] = None) -> List[dict]:
     html = html if html is not None else client.fetch("accessO.html", info["cname"])
     return [dict(r, race_id=info["race_id"], date=info["date"], venue=info["venue"], race_no=info["race_no"],
-                 post_time=post.strftime("%H:%M"), minutes_before=minutes,
+                 post_time=post.strftime("%H:%M"), point=point,
+                 minutes_before=int((post - now).total_seconds() // 60),
                  fetched_at=now.strftime("%Y-%m-%d %H:%M:%S"))
             for r in parse_odds_page(html)]
 
@@ -91,7 +111,8 @@ def run(out: Path, date: str, until: datetime, client=None,
     races = discover(client, [date])
     print(f"{date} 対象 {len(races)} レース")
     posts: Dict[str, datetime] = {}
-    taken: Dict[str, set] = {rid: set() for rid in races}
+    prev = load_taken(out, date)
+    taken: Dict[str, set] = {rid: set(prev.get(rid, ())) for rid in races}
     for rid, info in sorted(races.items()):
         try:
             html = client.fetch("accessO.html", info["cname"])
@@ -116,7 +137,9 @@ def run(out: Path, date: str, until: datetime, client=None,
                     print(f"[失敗] {rid} {m}分前: {e}", file=sys.stderr)
                     continue
                 append_rows(out, date, rows)
-                taken[rid].update(x for x in SNAP_MINUTES if x >= m)
+                taken[rid].add(m)
+                if m.isdigit():
+                    taken[rid].update(str(x) for x in SNAP_MINUTES if x >= int(m))
                 saved += 1
         if (clock() - last_commit).total_seconds() >= commit_every:
             on_commit(f"data: 締切前オッズ {date}（{saved}回分）")
