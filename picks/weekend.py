@@ -14,7 +14,7 @@
    武豊と、検証で両期間とも100%を超えた騎手（岩田康誠・団野大成・戸崎圭太・田辺裕信）は
    「参考（買わない）」として表示する。
    前走で最初のコーナーを先頭集団（2番手以内か、頭数の2割以内）で回った馬には「逃げ先行」の印を付ける
-   （検証では指定4騎手×逃げ先行がさらに良かったが件数が少ないため、印だけ付けて様子を見る）。
+   一番期待値の高い買い馬が逃げ先行なら、1レースの金額を2倍にする（検証で前後半とも良かった。21レース）。
 4. picks.json（週ごとの記録）と picks.html を出力する。
 
 全レースでの検証（5,256レース、前半〜2025-09-05／後半）：指定4騎手×期待値1.0以上は
@@ -55,6 +55,13 @@ EV_THRESHOLD = 1.0
 MIN_PLACE_ODDS = 1.2
 BET_MIN_EV = 1.1  # 指定騎手でもこれ未満は買わない（参考に出す）
 BUDGET_TIERS = ((1.3, 12000), (1.1, 6000), (0.0, 3000))  # 一番高い期待値→1レースに賭ける金額
+
+
+STYLE_MULTIPLIER = 2  # 一番期待値の高い買い馬が「逃げ先行」なら金額をこの倍にする
+
+
+def style_multiplier(c: dict) -> int:
+    return STYLE_MULTIPLIER if c.get("style") == "逃げ先行" else 1
 
 
 def race_budget(top_ev: float) -> int:
@@ -209,7 +216,7 @@ def allocate(cands: List[dict]) -> List[dict]:
     while legs:
         inv = [1 / float(c["place_odds_min"]) for c in legs]
         if len(legs) == 1 or sum(inv) < 0.9:
-            budget = race_budget(legs[0]["expected_value"])
+            budget = race_budget(legs[0]["expected_value"]) * style_multiplier(legs[0])
             stakes = [budget * x / sum(inv) // 100 * 100 for x in inv]
             stakes[0] += budget - sum(stakes)
             total = sum(stakes)
@@ -244,9 +251,10 @@ def odds_line(c: dict) -> str:
     plo, e = float(c["place_odds_min"]), c["expected_value"]
     skip = max(MIN_PLACE_ODDS, plo * BET_MIN_EV / e)
     top = BUDGET_TIERS[0]
+    k = style_multiplier(c)
     if e < BET_MIN_EV:
-        return f"{skip:.1f}以上になれば{race_budget(BET_MIN_EV):,}円"
-    return f"{skip:.1f}未満は見送り／{plo * top[0] / e:.1f}以上で{top[1]:,}円"
+        return f"{skip:.1f}以上になれば{race_budget(BET_MIN_EV) * k:,}円"
+    return f"{skip:.1f}未満は見送り／{plo * top[0] / e:.1f}以上で{top[1] * k:,}円"
 
 
 def bet_label(c: dict) -> str:
@@ -267,11 +275,11 @@ def render(store: dict, now: str) -> str:
         "<h1>週末の買い目（期待値派×騎手）</h1>",
         f"<p class='mut'>更新 {escape(now)}（JST）。全レースが対象。期待値1.0以上・単勝50倍未満で、"
         "M.デムーロ・C.デムーロ・ルメール・川田が乗る馬の複勝を買います。1レースの金額は、そのレースで一番高い期待値が"
-        "1.3以上なら12,000円、1.1以上なら6,000円。期待値1.1未満の馬は買わず、参考として表示します。"
+        "1.3以上なら12,000円、1.1以上なら6,000円。その馬に「逃げ先行」の印が付いていれば2倍（24,000円／12,000円）。期待値1.1未満の馬は買わず、参考として表示します。"
         "2頭以上なら、どれが当たってもそのレースの合計を上回って戻るように複勝オッズに合わせて割り振ります。"
         "複勝オッズの下限が1.2倍未満の馬は買いません。"
         "「参考」は武豊・岩田康誠・団野大成・戸崎圭太・田辺裕信で、成績を追うだけで買いません。"
-        "「逃げ先行」は前走で最初のコーナーを先頭集団で回った馬の印です（検証では成績が良かったが件数が少ないので、今は買い方は変えません）。"
+        "「逃げ先行」は前走で最初のコーナーを先頭集団で回った馬の印です（買い馬に付いたら金額2倍）。"
         "オッズは取得時点のもので発走までに変わります。全5,256レースの検証（確定オッズ）では、この賭け方で前半152%・後半120%（67レース）でしたが、"
         "保証ではありません。</p>"
         "<p class='mut'>発走直前の確認：「直前の目安」は、複勝オッズの下限（例 1.5-2.3倍なら1.5）がこの値を下回ったら見送り、"

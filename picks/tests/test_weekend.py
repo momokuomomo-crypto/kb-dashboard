@@ -93,6 +93,14 @@ class TestAllocate(unittest.TestCase):
         self.assertEqual(c[0]["stake"], 0)
 
 
+class TestStyleDouble(unittest.TestCase):
+    def test_nige_doubles_budget(self):
+        c = [dict(group="bet", place_odds_min="2.0", expected_value=1.35, style="逃げ先行")]
+        weekend.allocate(c)
+        self.assertEqual(c[0]["stake"], 24000)
+        self.assertEqual(weekend.odds_line(c[0]), "1.6未満は見送り／1.9以上で24,000円")
+
+
 class TestOddsLine(unittest.TestCase):
     def test_odds_line(self):
         c = dict(group="bet", place_odds_min="2.2", expected_value=1.21)
