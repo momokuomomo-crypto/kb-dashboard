@@ -6,6 +6,7 @@
 その日（JST）の全レースについて、当日9時・12時の時点と、発走の60分前・30分前・
 10分前・5分前・3分前（JRAの発売締切は発走2分前）に単勝・複勝オッズページ（pw151）を取り、
 odds_live/YYYYMMDD.csv に1頭1行で追記する。発走時刻はオッズページの「発走時刻」から読む。
+--eve を付けると翌日の全レースを今の時点で1回だけ取る（point="前日"。前日20時の記録用）。
 過去のレースの「締切前オッズ」はJRAに残らないので、記録は今後のレースだけ。
 確定オッズは jra-archive の horses/*.csv（tan_odds, fuku_min, fuku_max）にある。
 """
@@ -150,18 +151,47 @@ def run(out: Path, date: str, until: datetime, client=None,
     return taken
 
 
+def eve(out: Path, date: str, client=None, now: Optional[datetime] = None,
+        on_commit: Callable[[str], None] = lambda m: None) -> int:
+    """前日の夜に、翌日（date）の全レースのオッズを1回取る。"""
+    client = client or JraClient()
+    races = discover(client, [date])
+    if "前日" in {p for v in load_taken(out, date).values() for p in v}:
+        print("前日の分は記録済み")
+        return 0
+    n = 0
+    for rid, info in sorted(races.items()):
+        try:
+            html = client.fetch("accessO.html", info["cname"])
+        except Exception as e:
+            print(f"[失敗] {rid}: {e}", file=sys.stderr)
+            continue
+        post = parse_post_time(html, date)
+        if post is None:
+            continue
+        append_rows(out, date, snapshot(client, info, post, "前日", now or datetime.now(JST), html=html))
+        n += 1
+    on_commit(f"data: 前日オッズ {date}（{n}レース）")
+    print(f"{date} 前日の記録 {n} レース")
+    return n
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="締切直前の単勝・複勝オッズを記録する")
     ap.add_argument("--out", type=Path, required=True, help="odds-liveブランチの作業ディレクトリ")
     ap.add_argument("--date", help="YYYYMMDD（省略時は今日 JST）")
     ap.add_argument("--until", default="17:30", help="この時刻（JST）で終わる")
     ap.add_argument("--git-push", action="store_true")
+    ap.add_argument("--eve", action="store_true", help="翌日の全レースを今の時点で1回取る")
     a = ap.parse_args()
     now = datetime.now(JST)
+    on_commit = (lambda msg: git_push(a.out, msg)) if a.git_push else (lambda msg: None)
+    if a.eve:
+        eve(a.out, a.date or (now + timedelta(days=1)).strftime("%Y%m%d"), on_commit=on_commit)
+        return 0
     date = a.date or now.strftime("%Y%m%d")
     h, m = map(int, a.until.split(":"))
     until = datetime.strptime(date, "%Y%m%d").replace(hour=h, minute=m, tzinfo=JST)
-    on_commit = (lambda msg: git_push(a.out, msg)) if a.git_push else (lambda msg: None)
     run(a.out, date, until, on_commit=on_commit)
     return 0
 

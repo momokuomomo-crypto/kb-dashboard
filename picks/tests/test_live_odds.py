@@ -86,3 +86,19 @@ class TestResume(unittest.TestCase):
         one = [r for r in rows if r["race_id"] == sorted(taken)[0]]
         points = [r["point"] for r in one[::10]]
         self.assertEqual(points, ["60", "30", "12:00", "10", "5", "3"])  # 重複なし
+
+
+class TestEve(unittest.TestCase):
+    def test_eve_records_once_and_day_jobs_keep_going(self):
+        with tempfile.TemporaryDirectory() as d:
+            now = datetime(2024, 11, 1, 20, 5, tzinfo=JST)
+            n = live_odds.eve(Path(d), "20241102", client=FakeClient(), now=now)
+            self.assertGreater(n, 0)
+            self.assertEqual(live_odds.eve(Path(d), "20241102", client=FakeClient(), now=now), 0)  # 二度目は取らない
+            rows = list(csv.DictReader(open(Path(d) / "odds_live/20241102.csv", encoding="utf-8")))
+            self.assertEqual({r["point"] for r in rows}, {"前日"})
+            self.assertEqual(rows[0]["minutes_before"], str(16 * 60 + 10))
+            clock = FakeClock(datetime(2024, 11, 2, 11, 0, tzinfo=JST))
+            taken = live_odds.run(Path(d), "20241102", datetime(2024, 11, 2, 17, 30, tzinfo=JST),
+                                  client=FakeClient(), clock=clock, sleep=clock.sleep)
+        self.assertTrue(all({"前日", "60", "3"} <= v for v in taken.values()))
