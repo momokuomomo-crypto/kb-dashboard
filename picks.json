@@ -5,10 +5,10 @@
     "horse_no": "1",
     "horse_name": "アドマイヤキングス",
     "win_odds": "4.1",
-    "place_odds_min": "2.2",
-    "place_odds_max": "3.2",
+    "place_odds_min": "2.3",
+    "place_odds_max": "3.3",
     "jockey": "C.デムーロ",
-    "expected_value": 1.246,
+    "expected_value": 1.294,
     "group": "bet",
     "style": "逃げ先行",
     "race_id": "202608050703",
@@ -16,17 +16,17 @@
     "venue": "京都",
     "race_no": 3,
     "post_time": "11:05",
-    "odds_at": "22:51",
-    "stake": 7400
+    "odds_at": "22:54",
+    "stake": 8800
    },
    "202608050705-3": {
     "horse_no": "3",
     "horse_name": "エイカイコールマン",
-    "win_odds": "3.9",
+    "win_odds": "3.6",
     "place_odds_min": "1.8",
     "place_odds_max": "2.4",
     "jockey": "C.デムーロ",
-    "expected_value": 1.001,
+    "expected_value": 1.055,
     "group": "bet",
     "style": "",
     "race_id": "202608050705",
@@ -34,7 +34,7 @@
     "venue": "京都",
     "race_no": 5,
     "post_time": "12:25",
-    "odds_at": "22:51",
+    "odds_at": "22:54",
     "stake": 0
    },
    "202608050706-14": {
@@ -44,7 +44,7 @@
     "place_odds_min": "2.2",
     "place_odds_max": "2.6",
     "jockey": "武 豊",
-    "expected_value": 1.097,
+    "expected_value": 1.099,
     "group": "watch",
     "style": "",
     "race_id": "202608050706",
@@ -52,7 +52,7 @@
     "venue": "京都",
     "race_no": 6,
     "post_time": "12:55",
-    "odds_at": "22:51",
+    "odds_at": "22:54",
     "stake": 0
    },
    "202608050707-14": {
@@ -62,7 +62,7 @@
     "place_odds_min": "3.6",
     "place_odds_max": "4.8",
     "jockey": "C.デムーロ",
-    "expected_value": 1.771,
+    "expected_value": 1.768,
     "group": "bet",
     "style": "逃げ先行",
     "race_id": "202608050707",
@@ -70,17 +70,17 @@
     "venue": "京都",
     "race_no": 7,
     "post_time": "13:25",
-    "odds_at": "22:51",
+    "odds_at": "22:54",
     "stake": 12000
    },
    "202608050707-9": {
     "horse_no": "9",
     "horse_name": "ペイシャシス",
-    "win_odds": "6.2",
-    "place_odds_min": "2.8",
+    "win_odds": "6.3",
+    "place_odds_min": "2.9",
     "place_odds_max": "3.8",
     "jockey": "武 豊",
-    "expected_value": 1.117,
+    "expected_value": 1.127,
     "group": "watch",
     "style": "中団",
     "race_id": "202608050707",
@@ -88,7 +88,7 @@
     "venue": "京都",
     "race_no": 7,
     "post_time": "13:25",
-    "odds_at": "22:51",
+    "odds_at": "22:54",
     "stake": 0
    },
    "202608050708-13": {
@@ -106,7 +106,7 @@
     "venue": "京都",
     "race_no": 8,
     "post_time": "13:55",
-    "odds_at": "22:51",
+    "odds_at": "22:54",
     "stake": 0
    },
    "202608050710-3": {
@@ -124,7 +124,7 @@
     "venue": "京都",
     "race_no": 10,
     "post_time": "15:05",
-    "odds_at": "22:51",
+    "odds_at": "22:54",
     "stake": 0
    },
    "202608050711-9": {
@@ -142,17 +142,17 @@
     "venue": "京都",
     "race_no": 11,
     "post_time": "15:40",
-    "odds_at": "22:51",
+    "odds_at": "22:54",
     "stake": 0
    },
    "202608050711-2": {
     "horse_no": "2",
     "horse_name": "シャローチャンプ",
-    "win_odds": "12.6",
+    "win_odds": "12.7",
     "place_odds_min": "3.7",
     "place_odds_max": "6.4",
     "jockey": "C.デムーロ",
-    "expected_value": 1.013,
+    "expected_value": 1.007,
     "group": "bet",
     "style": "差し追込",
     "race_id": "202608050711",
@@ -160,7 +160,7 @@
     "venue": "京都",
     "race_no": 11,
     "post_time": "15:40",
-    "odds_at": "22:51",
+    "odds_at": "22:54",
     "stake": 0
    },
    "202608050712-2": {
@@ -170,7 +170,7 @@
     "place_odds_min": "2.1",
     "place_odds_max": "2.5",
     "jockey": "川田 将雅",
-    "expected_value": 1.197,
+    "expected_value": 1.196,
     "group": "bet",
     "style": "逃げ先行",
     "race_id": "202608050712",
@@ -178,17 +178,17 @@
     "venue": "京都",
     "race_no": 12,
     "post_time": "16:15",
-    "odds_at": "22:51",
+    "odds_at": "22:54",
     "stake": 5900
    },
    "202605050702-7": {
     "horse_no": "7",
     "horse_name": "ピコジャック",
-    "win_odds": "29.4",
+    "win_odds": "29.3",
     "place_odds_min": "3.4",
-    "place_odds_max": "19.0",
+    "place_odds_max": "29.5",
     "jockey": "戸崎 圭太",
-    "expected_value": 1.295,
+    "expected_value": 1.814,
     "group": "watch",
     "style": "中団",
     "race_id": "202605050702",
@@ -196,7 +196,7 @@
     "venue": "東京",
     "race_no": 2,
     "post_time": "10:20",
-    "odds_at": "22:51",
+    "odds_at": "22:54",
     "stake": 0
    },
    "202605050703-13": {
@@ -204,9 +204,9 @@
     "horse_name": "コールセレスト",
     "win_odds": "4.5",
     "place_odds_min": "1.8",
-    "place_odds_max": "3.5",
+    "place_odds_max": "3.6",
     "jockey": "C.ルメール",
-    "expected_value": 1.072,
+    "expected_value": 1.087,
     "group": "bet",
     "style": "中団",
     "race_id": "202605050703",
@@ -214,7 +214,7 @@
     "venue": "東京",
     "race_no": 3,
     "post_time": "10:50",
-    "odds_at": "22:51",
+    "odds_at": "22:54",
     "stake": 0
    }
   }
