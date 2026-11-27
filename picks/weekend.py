@@ -128,6 +128,19 @@ def style_of(corner_first: int, runners: int) -> str:
 # ---------------------------------------------------------------- JRA
 
 
+TIME_RE = re.compile(r"(\d{1,2})時(\d{2})分")
+
+
+def parse_post_time(html: str, date: str) -> Optional[datetime]:
+    """オッズページの「発走時刻：12時15分」を日時にする。"""
+    node = BeautifulSoup(html, "html.parser").select_one("div.cell.time")
+    m = TIME_RE.search(node.get_text() if node else "")
+    if not m:
+        return None
+    d = datetime.strptime(date, "%Y%m%d")
+    return d.replace(hour=int(m.group(1)), minute=int(m.group(2)), tzinfo=JST)
+
+
 def parse_odds_page(html: str) -> List[dict]:
     """単勝・複勝オッズページ（pw151）。取消・除外（単勝なし）の馬も含めて返す。"""
     soup = BeautifulSoup(html, "html.parser")
@@ -294,13 +307,13 @@ def render(store: dict, now: str) -> str:
         "オッズは取得時点のもので発走までに変わります。全5,256レースの検証（確定オッズ）では、この賭け方で前半141%・後半128%（67レース）でしたが、利益の大半は上位3レースによるもので、"
         "保証ではありません。</p>"
         "<p class='mut'>発走直前の確認：「直前の目安」は、複勝オッズの下限（例 1.5-2.3倍なら1.5）がこの値を下回ったら見送り、"
-        "という目安です（期待値は複勝オッズにほぼ比例するとして計算）。同じレースで2頭買う場合は割り振りも変わるので、ページの再更新（当日9時・12時）も見てください。</p>",
+        "という目安です（期待値は複勝オッズにほぼ比例するとして計算）。買い目のあるレースは、発走の約40分前に最新オッズでこのページを自動で更新します（ほかに当日9時・12時）。発走後は買った時点の買い目のまま残します。</p>",
         "<p class='mut'><a href='./'>ダッシュボードへ戻る</a> ・ <a href='summary.html'>これまでのまとめ</a></p>",
     ]
     for wk in sorted(store, reverse=True):
         data = store[wk]
         parts.append(f"<h2>{wk[4:6]}/{wk[6:]}（土）の週</h2>")
-        rows = sorted(data["picks"].values(), key=lambda c: (c["date"], c["venue"], c["race_no"], -c["stake"]))
+        rows = sorted(data["picks"].values(), key=lambda c: (c["date"], c.get("post_time") or "99", c["venue"], c["race_no"], -c["stake"]))
         if not rows:
             parts.append("<p class='mut'>今のところ該当なし（見送り）。</p>")
             continue
@@ -309,16 +322,16 @@ def render(store: dict, now: str) -> str:
             d = datetime.strptime(c["date"], "%Y%m%d")
             res = c.get("result", "")
             body.append(
-                f"<tr><td>{d.month}/{d.day}({wd[d.weekday()]})</td><td>{escape(c['venue'])}{c['race_no']}R</td>"
+                f"<tr><td>{d.month}/{d.day}({wd[d.weekday()]})</td><td>{escape(c['venue'])}{c['race_no']}R</td><td>{escape(c.get('post_time', ''))}</td>"
                 f"<td>{escape(c['horse_no'])} {escape(c['horse_name'])}{"<span class='tag'>逃げ先行</span>" if c.get('style') == '逃げ先行' else ''}</td><td>{escape(c['jockey'])}</td>"
-                f"<td class='n'>{escape(c['win_odds'])}</td><td class='n'>{escape(c['place_odds_min'])}-{escape(c['place_odds_max'])}</td>"
+                f"<td class='n'>{escape(c['win_odds'])}</td><td class='n'>{escape(c['place_odds_min'])}-{escape(c['place_odds_max'])}{f"<br><span class='mut'>{escape(c['odds_at'])}時点</span>" if c.get('odds_at') else ''}</td>"
                 f"<td class='n'>{c['expected_value']:.2f}</td>"
                 f"<td class='{'buy' if c['stake'] else 'mut'}'>{bet_label(c)}</td><td class='mut'>{odds_line(c)}</td>"
                 f"<td>{escape(res)}</td></tr>"
             )
         total = sum(c["stake"] for c in rows)
         parts.append(
-            f"<p>購入 {sum(1 for c in rows if c['stake'])}点・{total:,}円</p><div class='scroll'><table><thead><tr><th>日付</th><th>レース</th>"
+            f"<p>購入 {sum(1 for c in rows if c['stake'])}点・{total:,}円</p><div class='scroll'><table><thead><tr><th>日付</th><th>レース</th><th>発走</th>"
             "<th>馬</th><th>騎手</th><th class='n'>単勝</th><th class='n'>複勝</th><th class='n'>期待値</th><th>買い</th><th>直前の目安（複勝下限）</th>"
             f"<th>結果</th></tr></thead><tbody>{''.join(body)}</tbody></table></div>"
         )
@@ -344,11 +357,16 @@ def run(archive: Path, out: Path, dates: List[str], client: Optional[JraClient] 
     print(f"対象レース: {len(found)}")
     for rid, info in sorted(found.items(), key=lambda kv: (kv[1]["date"], kv[1]["venue"], kv[1]["race_no"])):
         try:
-            rows = parse_odds_page(client.fetch("accessO.html", info["cname"]))
+            html = client.fetch("accessO.html", info["cname"])
+            rows = parse_odds_page(html)
         except Exception as e:
             print(f"オッズの取得に失敗: {rid}: {e}", file=sys.stderr)
             continue
+        post = parse_post_time(html, info["date"])
         wk = store.setdefault(weekend_key(info["date"]), {"picks": {}})
+        if post and post <= now and any(c["race_id"] == rid for c in wk["picks"].values()):
+            continue  # 発走後は、買った時点の買い目を残す
+        extra = {"post_time": post.strftime("%H:%M") if post else "", "odds_at": now.strftime("%H:%M")}
         # 同じレースの古い買い目は最新のオッズで置き換える（確定済みの買いは残す）
         for k in [k for k, c in wk["picks"].items() if c["race_id"] == rid and not c.get("locked")]:
             del wk["picks"][k]
@@ -356,7 +374,7 @@ def run(archive: Path, out: Path, dates: List[str], client: Optional[JraClient] 
                  for c in evaluate_race(rows, model)]
         for g in ("bet", "watch"):
             for c in sorted((c for c in cands if c["group"] == g), key=lambda c: -c["expected_value"])[:3]:
-                wk["picks"][f"{rid}-{c['horse_no']}"] = dict(c, **{k: info[k] for k in ("race_id", "date", "venue", "race_no")})
+                wk["picks"][f"{rid}-{c['horse_no']}"] = dict(c, **{k: info[k] for k in ("race_id", "date", "venue", "race_no")}, **extra)
     for wk in store.values():
         by_race = defaultdict(list)
         for c in wk["picks"].values():

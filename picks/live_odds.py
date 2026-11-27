@@ -24,24 +24,16 @@ from typing import Callable, Dict, List, Optional
 from bs4 import BeautifulSoup
 
 from jra_client import JraClient
-from weekend import JST, discover, parse_odds_page
+from weekend import JST, discover, parse_odds_page, parse_post_time
 
 SNAP_MINUTES = (60, 30, 10, 5, 3)  # 発走の何分前に取るか
 SNAP_CLOCKS = ("09:00", "12:00")  # 当日のこの時刻にも全レース（発走前のもの）を取る
+PRERACE_MIN = 40  # 買い目のあるレースは発走のこの分数前に買い目ページを更新する
+PRERACE_GAP_MIN = 10  # 更新を頼んだあと、この分数は次を頼まない（1回の更新で全レースが新しくなる）
 CLOCK_LATE_MIN = 30  # 時刻の記録は30分遅れまで（ジョブの起動遅れ用）
 COLUMNS = ["race_id", "date", "venue", "race_no", "post_time", "point", "minutes_before", "fetched_at",
            "horse_no", "horse_name", "jockey", "win_odds", "place_odds_min", "place_odds_max"]
-TIME_RE = re.compile(r"(\d{1,2})時(\d{2})分")
 
-
-def parse_post_time(html: str, date: str) -> Optional[datetime]:
-    """オッズページの「発走時刻：12時15分」を日時にする。"""
-    node = BeautifulSoup(html, "html.parser").select_one("div.cell.time")
-    m = TIME_RE.search(node.get_text() if node else "")
-    if not m:
-        return None
-    d = datetime.strptime(date, "%Y%m%d")
-    return d.replace(hour=int(m.group(1)), minute=int(m.group(2)), tzinfo=JST)
 
 
 def due_snapshots(post: datetime, now: datetime, taken: set) -> List[str]:
@@ -107,7 +99,8 @@ def git_push(root: Path, message: str) -> None:
 def run(out: Path, date: str, until: datetime, client=None,
         clock: Callable[[], datetime] = lambda: datetime.now(JST),
         sleep: Callable[[float], None] = time.sleep, on_commit: Callable[[str], None] = lambda m: None,
-        commit_every: int = 1800, poll: float = 20.0) -> Dict[str, set]:
+        commit_every: int = 1800, poll: float = 20.0,
+        on_prerace: Callable[[str, str], bool] = lambda rid, date: False) -> Dict[str, set]:
     client = client or JraClient()
     races = discover(client, [date])
     print(f"{date} 対象 {len(races)} レース")
@@ -125,12 +118,19 @@ def run(out: Path, date: str, until: datetime, client=None,
             posts[rid] = post
     last_commit = clock()
     saved = 0
+    prerace_done: set = set()
+    last_prerace: Optional[datetime] = None
     while True:
         now = clock()
         pending = [rid for rid, p in posts.items() if p > now]
         if not pending or now >= until:
             break
         for rid in sorted(pending, key=lambda r: posts[r]):
+            if rid not in prerace_done and clock() >= posts[rid] - timedelta(minutes=PRERACE_MIN):
+                prerace_done.add(rid)
+                recent = last_prerace and clock() - last_prerace < timedelta(minutes=PRERACE_GAP_MIN)
+                if not recent and on_prerace(rid, date):
+                    last_prerace = clock()
             for m in due_snapshots(posts[rid], clock(), taken[rid]):
                 try:
                     rows = snapshot(client, races[rid], posts[rid], m, clock())
@@ -176,6 +176,33 @@ def eve(out: Path, date: str, client=None, now: Optional[datetime] = None,
     return n
 
 
+def make_prerace_dispatch(repo: str, token: str, workflow: str = "weekend_picks.yml"):
+    """買い目（picks.json の買い対象）があるレースなら、買い目の更新ワークフローを起動する。"""
+    import requests
+
+    api = f"https://api.github.com/repos/{repo}"
+    headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
+
+    def dispatch(rid: str, date: str) -> bool:
+        try:
+            r = requests.get(f"{api}/contents/picks.json", headers=dict(headers, Accept="application/vnd.github.raw+json"),
+                             params={"ref": "main"}, timeout=30)
+            r.raise_for_status()
+            store = r.json()
+        except Exception as e:
+            print(f"[失敗] picks.json: {e}", file=sys.stderr)
+            return False
+        if not any(c.get("race_id") == rid and c.get("group") == "bet"
+                   for wk in store.values() for c in wk.get("picks", {}).values()):
+            return False
+        r = requests.post(f"{api}/actions/workflows/{workflow}/dispatches", headers=headers,
+                          json={"ref": "main", "inputs": {"dates": date}}, timeout=30)
+        print(f"発走{PRERACE_MIN}分前の買い目更新: {rid} → {r.status_code}")
+        return r.status_code == 204
+
+    return dispatch
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="締切直前の単勝・複勝オッズを記録する")
     ap.add_argument("--out", type=Path, required=True, help="odds-liveブランチの作業ディレクトリ")
@@ -192,7 +219,10 @@ def main() -> int:
     date = a.date or now.strftime("%Y%m%d")
     h, m = map(int, a.until.split(":"))
     until = datetime.strptime(date, "%Y%m%d").replace(hour=h, minute=m, tzinfo=JST)
-    run(a.out, date, until, on_commit=on_commit)
+    import os
+    token, repo = os.environ.get("GITHUB_TOKEN"), os.environ.get("GITHUB_REPOSITORY")
+    kw = {"on_prerace": make_prerace_dispatch(repo, token)} if token and repo else {}
+    run(a.out, date, until, on_commit=on_commit, **kw)
     return 0
 
 

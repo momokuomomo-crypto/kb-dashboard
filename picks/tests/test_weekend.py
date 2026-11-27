@@ -154,6 +154,14 @@ class TestRun(unittest.TestCase):
             self.assertIn("20241102", store)
             html = (root / "out/picks.html").read_text(encoding="utf-8")
             self.assertIn("週末の買い目", html)
+            self.assertTrue(store["20241102"]["picks"])
+            self.assertTrue(all(c["post_time"] == "12:15" for c in store["20241102"]["picks"].values()))
+            self.assertIn("<th>発走</th>", html)
+            # 発走後の更新では、その時点の買い目を残す
+            before = json.dumps(store["20241102"]["picks"], sort_keys=True)
+            after = weekend.run(root / "archive", root / "out", ["20241102"], client,
+                                now=datetime(2024, 11, 2, 12, 30, tzinfo=weekend.JST))
+            self.assertEqual(json.dumps(after["20241102"]["picks"], sort_keys=True), before)
 
 
 if __name__ == "__main__":
