@@ -24,11 +24,11 @@ from typing import Callable, Dict, List, Optional
 from bs4 import BeautifulSoup
 
 from jra_client import JraClient
-from weekend import JST, discover, parse_odds_page, parse_post_time
+from weekend import JST, discover, jockey_group, parse_odds_page, parse_post_time
 
 SNAP_MINUTES = (60, 30, 10, 5, 3)  # 発走の何分前に取るか
 SNAP_CLOCKS = ("09:00", "12:00")  # 当日のこの時刻にも全レース（発走前のもの）を取る
-PRERACE_MIN = 40  # 買い目のあるレースは発走のこの分数前に買い目ページを更新する
+PRERACE_MIN = 40  # 4騎手（単勝50倍未満）が乗るレースは発走のこの分数前に買い目ページを更新する
 PRERACE_GAP_MIN = 10  # 更新を頼んだあと、この分数は次を頼まない（1回の更新で全レースが新しくなる）
 CLOCK_LATE_MIN = 30  # 時刻の記録は30分遅れまで（ジョブの起動遅れ用）
 COLUMNS = ["race_id", "date", "venue", "race_no", "post_time", "point", "minutes_before", "fetched_at",
@@ -96,6 +96,23 @@ def git_push(root: Path, message: str) -> None:
     print("[失敗] pushできませんでした", file=sys.stderr)
 
 
+def has_candidate(client, info: dict) -> bool:
+    """買い対象の4騎手が単勝50倍未満の馬に乗っているか（直前に期待値1.1を超えて買いになりうるレース）。"""
+    try:
+        rows = parse_odds_page(client.fetch("accessO.html", info["cname"]))
+    except Exception as e:
+        print(f"[失敗] {info.get('race_id')}: {e}", file=sys.stderr)
+        return False
+    for r in rows:
+        try:
+            ok = float(r["win_odds"]) < 50
+        except (TypeError, ValueError):
+            ok = False
+        if ok and jockey_group(r["jockey"]) == "bet":
+            return True
+    return False
+
+
 def run(out: Path, date: str, until: datetime, client=None,
         clock: Callable[[], datetime] = lambda: datetime.now(JST),
         sleep: Callable[[float], None] = time.sleep, on_commit: Callable[[str], None] = lambda m: None,
@@ -129,7 +146,7 @@ def run(out: Path, date: str, until: datetime, client=None,
             if rid not in prerace_done and clock() >= posts[rid] - timedelta(minutes=PRERACE_MIN):
                 prerace_done.add(rid)
                 recent = last_prerace and clock() - last_prerace < timedelta(minutes=PRERACE_GAP_MIN)
-                if not recent and on_prerace(rid, date):
+                if not recent and has_candidate(client, races[rid]) and on_prerace(rid, date):
                     last_prerace = clock()
             for m in due_snapshots(posts[rid], clock(), taken[rid]):
                 try:
@@ -177,24 +194,13 @@ def eve(out: Path, date: str, client=None, now: Optional[datetime] = None,
 
 
 def make_prerace_dispatch(repo: str, token: str, workflow: str = "weekend_picks.yml"):
-    """買い目（picks.json の買い対象）があるレースなら、買い目の更新ワークフローを起動する。"""
+    """買い目の更新ワークフロー（weekend_picks.yml）を起動する。"""
     import requests
 
     api = f"https://api.github.com/repos/{repo}"
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
 
     def dispatch(rid: str, date: str) -> bool:
-        try:
-            r = requests.get(f"{api}/contents/picks.json", headers=dict(headers, Accept="application/vnd.github.raw+json"),
-                             params={"ref": "main"}, timeout=30)
-            r.raise_for_status()
-            store = r.json()
-        except Exception as e:
-            print(f"[失敗] picks.json: {e}", file=sys.stderr)
-            return False
-        if not any(c.get("race_id") == rid and c.get("group") == "bet"
-                   for wk in store.values() for c in wk.get("picks", {}).values()):
-            return False
         r = requests.post(f"{api}/actions/workflows/{workflow}/dispatches", headers=headers,
                           json={"ref": "main", "inputs": {"dates": date}}, timeout=30)
         print(f"発走{PRERACE_MIN}分前の買い目更新: {rid} → {r.status_code}")

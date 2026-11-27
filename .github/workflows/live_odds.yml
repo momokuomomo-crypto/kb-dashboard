@@ -1,7 +1,7 @@
 name: Live Odds (締切前オッズ)
 
 # 土・日・月 の開催日に、全レースの単勝・複勝オッズを、当日9時・12時と
-# 発走60分前・30分前・10分前・5分前・3分前に記録する。買い目のあるレースは発走40分前に
+# 発走60分前・30分前・10分前・5分前・3分前に記録する。4騎手が乗るレースは発走40分前に
 # weekend_picks.yml を起動して買い目ページを最新オッズにする
 # （picks/live_odds.py）。保存先は非公開の kb-project の odds-live ブランチ（ARCHIVE_TOKEN）。
 # 公開リポジトリなのでActionsは無料。1日を午前・午後の2つのジョブに分ける（1ジョブ6時間まで）。
@@ -22,7 +22,7 @@ concurrency:
 
 permissions:
   contents: read
-  actions: write # 買い目のあるレースの発走40分前に weekend_picks.yml を起動する
+  actions: write # 4騎手が乗るレースの発走40分前に weekend_picks.yml を起動する
 
 jobs:
   morning:
