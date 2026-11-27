@@ -68,6 +68,14 @@ class TestLiveOdds(unittest.TestCase):
         self.assertEqual(rows[0]["post_time"], "12:15")
         self.assertTrue(commits)
 
+    def test_has_candidate(self):
+        self.assertTrue(live_odds.has_candidate(FakeClient(), {"cname": "x"}))  # M.デムーロ 45.3倍
+
+        class NoBet:
+            def fetch(self, page, cname):
+                return FIX.replace("M.デムーロ", "北村 友一")
+        self.assertFalse(live_odds.has_candidate(NoBet(), {"cname": "x"}))
+
     def test_prerace_refresh_40_minutes_before(self):
         clock = FakeClock(datetime(2024, 11, 2, 8, 30, tzinfo=JST))
         calls = []
