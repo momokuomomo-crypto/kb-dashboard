@@ -44,7 +44,8 @@ from jra_client import JraClient
 JST = timezone(timedelta(hours=9))
 ODDS_TOP_CNAME = "pw15oli00/6D"
 ORL_RE = re.compile(r"pw15orl\d{2}(\d{2})(\d{4})(\d{2})(\d{2})(\d{8})/[0-9A-F]{2}")
-TANPUKU_RE = re.compile(r"pw151ou\d{2}(\d{2})(\d{4})(\d{2})(\d{2})(\d{2})(\d{8})Z/[0-9A-F]{2}")
+# 確定後は日付の後ろに「Z」が付く。発売中は付かないことがあるので、0〜3文字の英数字を許す
+TANPUKU_RE = re.compile(r"pw151ou\d{2}(\d{2})(\d{4})(\d{2})(\d{2})(\d{2})(\d{8})[0-9A-Z]{0,3}/[0-9A-F]{2}")
 VENUES = {
     "01": "札幌", "02": "函館", "03": "福島", "04": "新潟", "05": "東京",
     "06": "中山", "07": "中京", "08": "京都", "09": "阪神", "10": "小倉",
@@ -184,7 +185,11 @@ def discover(client: JraClient, dates: List[str]) -> Dict[str, dict]:
         if m.group(5) not in dates:
             continue
         try:
-            races.update(odds_cnames(client.fetch("accessO.html", m.group(0))))
+            page = client.fetch("accessO.html", m.group(0))
+            found = odds_cnames(page)
+            if not found:  # 構造確認用
+                print(f"単複のCNAMEなし: {m.group(0)}", sorted(set(re.findall(r"pw15[0-9a-z]{4}[0-9A-Z]+/[0-9A-F]{2}", page)))[:15])
+            races.update(found)
         except Exception as e:  # 1開催の失敗で全体を止めない
             print(f"レース一覧の取得に失敗: {m.group(0)}: {e}", file=sys.stderr)
     return {k: v for k, v in races.items() if v["date"] in dates}
