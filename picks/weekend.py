@@ -176,7 +176,11 @@ def discover(client: JraClient, dates: List[str]) -> Dict[str, dict]:
     """オッズのトップ→開催ごとのレース一覧→各レースの単勝・複勝オッズCNAME。"""
     top = client.fetch("accessO.html", ODDS_TOP_CNAME)
     races = odds_cnames(top)
-    for m in {m.group(0): m for m in ORL_RE.finditer(top)}.values():
+    orl = {m.group(0): m for m in ORL_RE.finditer(top)}
+    print(f"オッズのトップ: 開催 {sorted({m.group(5) for m in orl.values()})}・単複 {len(races)}件・{len(top)}文字")
+    if not orl:  # 構造確認用
+        print("オッズのトップのCNAME:", sorted(set(re.findall(r"pw1[0-9a-z]{4,6}\d*[0-9A-Z]*/[0-9A-F]{2}", top)))[:20])
+    for m in orl.values():
         if m.group(5) not in dates:
             continue
         try:
