@@ -68,6 +68,22 @@ class TestLiveOdds(unittest.TestCase):
         self.assertEqual(rows[0]["post_time"], "12:15")
         self.assertTrue(commits)
 
+    def test_prerace_refresh_40_minutes_before(self):
+        clock = FakeClock(datetime(2024, 11, 2, 8, 30, tzinfo=JST))
+        calls = []
+
+        def on_prerace(rid, date):
+            calls.append((rid, clock()))
+            return True
+
+        with tempfile.TemporaryDirectory() as d:
+            until = datetime(2024, 11, 2, 17, 30, tzinfo=JST)
+            live_odds.run(Path(d), "20241102", until, client=FakeClient(), clock=clock,
+                          sleep=clock.sleep, on_prerace=on_prerace)
+        # 同じ発走時刻（12:15）のレースが並んでも、1回の更新でまとめて新しくなるので頼むのは1回
+        self.assertEqual(len(calls), 1)
+        self.assertTrue(datetime(2024, 11, 2, 11, 35, tzinfo=JST) <= calls[0][1] < datetime(2024, 11, 2, 11, 36, tzinfo=JST))
+
 
 if __name__ == "__main__":
     unittest.main()

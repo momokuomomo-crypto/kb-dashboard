@@ -1,7 +1,8 @@
 name: Live Odds (締切前オッズ)
 
 # 土・日・月 の開催日に、全レースの単勝・複勝オッズを、当日9時・12時と
-# 発走60分前・30分前・10分前・5分前・3分前に記録する
+# 発走60分前・30分前・10分前・5分前・3分前に記録する。買い目のあるレースは発走40分前に
+# weekend_picks.yml を起動して買い目ページを最新オッズにする
 # （picks/live_odds.py）。保存先は非公開の kb-project の odds-live ブランチ（ARCHIVE_TOKEN）。
 # 公開リポジトリなのでActionsは無料。1日を午前・午後の2つのジョブに分ける（1ジョブ6時間まで）。
 # 開催がない日はすぐ終わる。
@@ -21,6 +22,7 @@ concurrency:
 
 permissions:
   contents: read
+  actions: write # 買い目のあるレースの発走40分前に weekend_picks.yml を起動する
 
 jobs:
   morning:
@@ -44,6 +46,7 @@ jobs:
         working-directory: picks
         env:
           UNTIL: "13:30"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
@@ -73,6 +76,7 @@ jobs:
         working-directory: picks
         env:
           UNTIL: "17:30"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
