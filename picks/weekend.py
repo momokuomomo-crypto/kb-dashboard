@@ -322,7 +322,7 @@ def render(store: dict, now: str) -> str:
             d = datetime.strptime(c["date"], "%Y%m%d")
             res = c.get("result", "")
             body.append(
-                f"<tr><td>{d.month}/{d.day}({wd[d.weekday()]})</td><td>{escape(c['venue'])}{c['race_no']}R</td><td>{escape(c.get('post_time', ''))}</td>"
+                f"<tr><td>{d.month}/{d.day}({wd[d.weekday()]}){f"<br><b>{escape(c['post_time'])}</b>" if c.get('post_time') else ''}</td><td>{escape(c['venue'])}{c['race_no']}R</td>"
                 f"<td>{escape(c['horse_no'])} {escape(c['horse_name'])}{"<span class='tag'>逃げ先行</span>" if c.get('style') == '逃げ先行' else ''}</td><td>{escape(c['jockey'])}</td>"
                 f"<td class='n'>{escape(c['win_odds'])}</td><td class='n'>{escape(c['place_odds_min'])}-{escape(c['place_odds_max'])}{f"<br><span class='mut'>{escape(c['odds_at'])}時点</span>" if c.get('odds_at') else ''}</td>"
                 f"<td class='n'>{c['expected_value']:.2f}</td>"
@@ -331,7 +331,7 @@ def render(store: dict, now: str) -> str:
             )
         total = sum(c["stake"] for c in rows)
         parts.append(
-            f"<p>購入 {sum(1 for c in rows if c['stake'])}点・{total:,}円</p><div class='scroll'><table><thead><tr><th>日付</th><th>レース</th><th>発走</th>"
+            f"<p>購入 {sum(1 for c in rows if c['stake'])}点・{total:,}円</p><div class='scroll'><table><thead><tr><th>日付・発走</th><th>レース</th>"
             "<th>馬</th><th>騎手</th><th class='n'>単勝</th><th class='n'>複勝</th><th class='n'>期待値</th><th>買い</th><th>直前の目安（複勝下限）</th>"
             f"<th>結果</th></tr></thead><tbody>{''.join(body)}</tbody></table></div>"
         )

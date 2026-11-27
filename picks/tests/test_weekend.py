@@ -156,7 +156,7 @@ class TestRun(unittest.TestCase):
             self.assertIn("週末の買い目", html)
             self.assertTrue(store["20241102"]["picks"])
             self.assertTrue(all(c["post_time"] == "12:15" for c in store["20241102"]["picks"].values()))
-            self.assertIn("<th>発走</th>", html)
+            self.assertIn("<br><b>12:15</b>", html)
             # 発走後の更新では、その時点の買い目を残す
             before = json.dumps(store["20241102"]["picks"], sort_keys=True)
             after = weekend.run(root / "archive", root / "out", ["20241102"], client,
