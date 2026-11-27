@@ -188,7 +188,9 @@ def discover(client: JraClient, dates: List[str]) -> Dict[str, dict]:
             page = client.fetch("accessO.html", m.group(0))
             found = odds_cnames(page)
             if not found:  # 構造確認用
-                print(f"単複のCNAMEなし: {m.group(0)}", sorted(set(re.findall(r"pw15[0-9a-z]{4}[0-9A-Z]+/[0-9A-F]{2}", page)))[:15])
+                title = re.search(r"<title>(.*?)</title>", page, re.S)
+                print(f"単複のCNAMEなし: {m.group(0)}・{len(page)}文字・{title.group(1).strip() if title else ''}",
+                      sorted(set(re.findall(r"doAction\([^)]*\)", page)))[:30])
             races.update(found)
         except Exception as e:  # 1開催の失敗で全体を止めない
             print(f"レース一覧の取得に失敗: {m.group(0)}: {e}", file=sys.stderr)
