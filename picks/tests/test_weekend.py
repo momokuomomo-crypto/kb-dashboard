@@ -53,6 +53,11 @@ class TestParse(unittest.TestCase):
         self.assertEqual(races["202405050105"]["race_no"], 5)
         self.assertEqual(races["202405050105"]["date"], "20241102")
 
+    def test_odds_cnames_on_sale(self):
+        got = weekend.odds_cnames("doAction('/JRADB/accessO.html', 'pw151ouS305202605070120261128Z/A9')")
+        self.assertEqual(list(got), ["202605050701"])
+        self.assertEqual(got["202605050701"]["date"], "20261128")
+
     def test_jockey_group(self):
         self.assertEqual(weekend.jockey_group("C.ルメール"), "bet")
         self.assertEqual(weekend.jockey_group("武 豊"), "watch")
