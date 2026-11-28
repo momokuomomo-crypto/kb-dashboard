@@ -164,6 +164,22 @@ class TestNotify(unittest.TestCase):
         self.assertEqual(weekend.collect_notifications(store, now), "")
 
 
+class TestRenderHidesFinished(unittest.TestCase):
+    def test_finished_races_are_hidden(self):
+        base = {"date": "20241102", "venue": "東京", "race_no": 5, "horse_no": "3", "horse_name": "", "jockey": "C.ルメール",
+                "win_odds": "3.0", "place_odds_min": "1.5", "place_odds_max": "2.0", "expected_value": 1.2,
+                "group": "bet", "stake": 3000, "race_id": "x"}
+        store = {"20241102": {"picks": {
+            "a": dict(base, horse_name="オワッタ", post_time="10:00"),
+            "b": dict(base, horse_name="コレカラ", post_time="15:00")}},
+            "20241026": {"picks": {"c": dict(base, date="20241026", horse_name="センシュウ", post_time="15:00")}}}
+        html = weekend.render(store, "2024-11-02 12:00")
+        self.assertNotIn("オワッタ", html)
+        self.assertIn("コレカラ", html)
+        self.assertNotIn("センシュウ", html)
+        self.assertIn("data-post='2024-11-02T15:00:00+09:00'", html)
+
+
 class TestRun(unittest.TestCase):
     def test_run_writes_json_and_html(self):
         with tempfile.TemporaryDirectory() as tmp:
