@@ -129,3 +129,15 @@ class TestEve(unittest.TestCase):
             taken = live_odds.run(Path(d), "20241102", datetime(2024, 11, 2, 17, 30, tzinfo=JST),
                                   client=FakeClient(), clock=clock, sleep=clock.sleep)
         self.assertTrue(all({"前日", "60", "3"} <= v for v in taken.values()))
+
+
+class TestEvePerRace(unittest.TestCase):
+    def test_eve_fills_races_not_yet_recorded(self):
+        with tempfile.TemporaryDirectory() as d:
+            now = datetime(2024, 11, 1, 20, 5, tzinfo=JST)
+            info = next(iter(live_odds.discover(FakeClient(), ["20241102"]).values()))
+            post = live_odds.parse_post_time(FIX, "20241102")
+            live_odds.append_rows(Path(d), "20241102", live_odds.snapshot(None, info, post, "前日", now, html=FIX))
+            n = live_odds.eve(Path(d), "20241102", client=FakeClient(), now=now)
+            total = len(live_odds.discover(FakeClient(), ["20241102"]))
+        self.assertEqual(n, total - 1)  # 先に記録済みの1レース以外を取る
