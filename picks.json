@@ -1,14 +1,32 @@
 {
  "20261128": {
   "picks": {
+   "202605050812-3": {
+    "horse_no": "3",
+    "horse_name": "メイショウタバル",
+    "win_odds": "7.1",
+    "place_odds_min": "3.1",
+    "place_odds_max": "4.4",
+    "jockey": "武 豊",
+    "expected_value": 1.159,
+    "group": "watch",
+    "style": "逃げ先行",
+    "race_id": "202605050812",
+    "date": "20261129",
+    "venue": "東京",
+    "race_no": 12,
+    "post_time": "15:40",
+    "odds_at": "09:55",
+    "stake": 0
+   },
    "202608050702-8": {
     "horse_no": "8",
     "horse_name": "ハルカカナタ",
-    "win_odds": "8.1",
+    "win_odds": "7.9",
     "place_odds_min": "1.8",
-    "place_odds_max": "5.7",
+    "place_odds_max": "6.7",
     "jockey": "C.デムーロ",
-    "expected_value": 1.112,
+    "expected_value": 1.251,
     "group": "bet",
     "style": "中団",
     "race_id": "202608050702",
@@ -16,8 +34,8 @@
     "venue": "京都",
     "race_no": 2,
     "post_time": "10:35",
-    "odds_at": "09:55",
-    "stake": 3400
+    "odds_at": "09:57",
+    "stake": 7500
    },
    "202608050703-1": {
     "horse_no": "1",
@@ -26,7 +44,7 @@
     "place_odds_min": "2.1",
     "place_odds_max": "2.9",
     "jockey": "C.デムーロ",
-    "expected_value": 1.027,
+    "expected_value": 1.026,
     "group": "bet",
     "style": "逃げ先行",
     "race_id": "202608050703",
@@ -34,7 +52,7 @@
     "venue": "京都",
     "race_no": 3,
     "post_time": "11:05",
-    "odds_at": "09:55",
+    "odds_at": "09:57",
     "stake": 0
    },
    "202608050707-9": {
@@ -52,7 +70,7 @@
     "venue": "京都",
     "race_no": 7,
     "post_time": "13:25",
-    "odds_at": "09:55",
+    "odds_at": "09:57",
     "stake": 0
    },
    "202608050708-13": {
@@ -70,7 +88,7 @@
     "venue": "京都",
     "race_no": 8,
     "post_time": "13:55",
-    "odds_at": "09:55",
+    "odds_at": "09:57",
     "stake": 0
    },
    "202608050712-2": {
@@ -80,7 +98,7 @@
     "place_odds_min": "1.7",
     "place_odds_max": "1.9",
     "jockey": "川田 将雅",
-    "expected_value": 1.006,
+    "expected_value": 1.008,
     "group": "bet",
     "style": "逃げ先行",
     "race_id": "202608050712",
@@ -88,17 +106,17 @@
     "venue": "京都",
     "race_no": 12,
     "post_time": "16:15",
-    "odds_at": "09:55",
+    "odds_at": "09:57",
     "stake": 0
    },
    "202605050702-7": {
     "horse_no": "7",
     "horse_name": "ピコジャック",
-    "win_odds": "36.2",
-    "place_odds_min": "2.6",
-    "place_odds_max": "20.4",
+    "win_odds": "35.7",
+    "place_odds_min": "2.5",
+    "place_odds_max": "19.7",
     "jockey": "戸崎 圭太",
-    "expected_value": 1.421,
+    "expected_value": 1.356,
     "group": "watch",
     "style": "中団",
     "race_id": "202605050702",
@@ -106,7 +124,7 @@
     "venue": "東京",
     "race_no": 2,
     "post_time": "10:20",
-    "odds_at": "09:55",
+    "odds_at": "09:57",
     "stake": 0
    },
    "202605050709-7": {
@@ -124,25 +142,7 @@
     "venue": "東京",
     "race_no": 9,
     "post_time": "14:15",
-    "odds_at": "09:55",
-    "stake": 0
-   },
-   "202605050812-3": {
-    "horse_no": "3",
-    "horse_name": "メイショウタバル",
-    "win_odds": "7.1",
-    "place_odds_min": "3.1",
-    "place_odds_max": "4.4",
-    "jockey": "武 豊",
-    "expected_value": 1.159,
-    "group": "watch",
-    "style": "逃げ先行",
-    "race_id": "202605050812",
-    "date": "20261129",
-    "venue": "東京",
-    "race_no": 12,
-    "post_time": "15:40",
-    "odds_at": "09:55",
+    "odds_at": "09:57",
     "stake": 0
    }
   },
