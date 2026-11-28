@@ -309,7 +309,7 @@ def render(store: dict, now: str) -> str:
         "保証ではありません。</p>"
         "<p class='mut'>発走直前の確認：「直前の目安」は、複勝オッズの下限（例 1.5-2.3倍なら1.5）がこの値を下回ったら見送り、"
         "という目安です（期待値は複勝オッズにほぼ比例するとして計算）。4騎手が乗るレースは、発走の約40分前に最新オッズでこのページを自動で更新します（ほかに当日9時・12時）。直前に期待値が上がって買いに加わることもあります。発走後は買った時点の買い目のまま残します。</p>",
-        "<p class='mut'><a href='./'>ダッシュボードへ戻る</a> ・ <a href='summary.html'>これまでのまとめ</a></p>",
+        "<p class='mut'><a href='./'>ダッシュボードへ戻る</a> ・ <a href='summary.html'>これまでのまとめ</a> ・ <a href='history.html'>購入履歴</a></p>",
     ]
     for wk in sorted(store, reverse=True):
         data = store[wk]
