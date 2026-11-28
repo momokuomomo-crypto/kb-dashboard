@@ -181,11 +181,11 @@ def eve(out: Path, date: str, client=None, now: Optional[datetime] = None,
     """前日の夜に、翌日（date）の全レースのオッズを1回取る。"""
     client = client or JraClient()
     races = discover(client, [date])
-    if "前日" in {p for v in load_taken(out, date).values() for p in v}:
-        print("前日の分は記録済み")
-        return 0
+    done = {rid for rid, v in load_taken(out, date).items() if "前日" in v}
     n = 0
     for rid, info in sorted(races.items()):
+        if rid in done:  # レースごとに1回だけ（前日発売が先に始まる重賞など）
+            continue
         try:
             html = client.fetch("accessO.html", info["cname"])
         except Exception as e:
@@ -228,6 +228,9 @@ def main() -> int:
     now = datetime.now(JST)
     on_commit = (lambda msg: git_push(a.out, msg)) if a.git_push else (lambda msg: None)
     if a.eve:
+        if not a.date and now.hour < 15:  # 定時実行が深夜・朝まで遅れたら翌日の前日分にはならないので取らない
+            print(f"{now:%H:%M} は前日の記録の時間外なので何もしません")
+            return 0
         eve(a.out, a.date or (now + timedelta(days=1)).strftime("%Y%m%d"), on_commit=on_commit)
         return 0
     date = a.date or now.strftime("%Y%m%d")
