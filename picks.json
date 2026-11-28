@@ -58,11 +58,11 @@
    "202608050812-6": {
     "horse_no": "6",
     "horse_name": "インブロリオ",
-    "win_odds": "7.6",
-    "place_odds_min": "4.1",
-    "place_odds_max": "5.1",
+    "win_odds": "9.3",
+    "place_odds_min": "3.4",
+    "place_odds_max": "4.4",
     "jockey": "川田 将雅",
-    "expected_value": 1.347,
+    "expected_value": 1.03,
     "group": "bet",
     "style": "中団",
     "race_id": "202608050812",
@@ -70,17 +70,17 @@
     "venue": "京都",
     "race_no": 12,
     "post_time": "16:15",
-    "odds_at": "14:48",
-    "stake": 10400
+    "odds_at": "18:57",
+    "stake": 0
    },
    "202605050812-3": {
     "horse_no": "3",
     "horse_name": "メイショウタバル",
-    "win_odds": "7.9",
-    "place_odds_min": "3.1",
-    "place_odds_max": "4.3",
+    "win_odds": "8.7",
+    "place_odds_min": "3.3",
+    "place_odds_max": "4.7",
     "jockey": "武 豊",
-    "expected_value": 1.068,
+    "expected_value": 1.07,
     "group": "watch",
     "style": "逃げ先行",
     "race_id": "202605050812",
@@ -88,7 +88,7 @@
     "venue": "東京",
     "race_no": 12,
     "post_time": "15:40",
-    "odds_at": "14:48",
+    "odds_at": "18:57",
     "stake": 0
    }
   },
@@ -101,15 +101,6 @@
     "horse_no": "8",
     "horse_name": "ハルカカナタ",
     "jockey": "C.デムーロ"
-   },
-   "202608050812-6": {
-    "date": "20261129",
-    "post_time": "16:15",
-    "venue": "京都",
-    "race_no": 12,
-    "horse_no": "6",
-    "horse_name": "インブロリオ",
-    "jockey": "川田 将雅"
    }
   }
  }
