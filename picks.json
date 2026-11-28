@@ -54,6 +54,24 @@
     "post_time": "15:40",
     "odds_at": "10:40",
     "stake": 0
+   },
+   "202608050712-2": {
+    "horse_no": "2",
+    "horse_name": "マウンテンバローズ",
+    "win_odds": "3.0",
+    "place_odds_min": "1.7",
+    "place_odds_max": "1.9",
+    "jockey": "川田 将雅",
+    "expected_value": 1.006,
+    "group": "bet",
+    "style": "逃げ先行",
+    "race_id": "202608050712",
+    "date": "20261128",
+    "venue": "京都",
+    "race_no": 12,
+    "post_time": "16:15",
+    "odds_at": "12:15",
+    "stake": 0
    }
   },
   "notified": {
