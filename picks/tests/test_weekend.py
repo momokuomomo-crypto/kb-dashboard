@@ -140,6 +140,30 @@ class TestStyle(unittest.TestCase):
             self.assertNotIn("W", s)
 
 
+class TestNotify(unittest.TestCase):
+    def pick(self, stake, post="12:15"):
+        return {"date": "20241102", "post_time": post, "venue": "東京", "race_no": 5, "horse_no": "3",
+                "horse_name": "テスト", "jockey": "C.ルメール", "stake": stake, "expected_value": 1.25,
+                "group": "bet", "place_odds_min": "2.0", "race_id": "x"}
+
+    def test_new_buy_once_then_dropped(self):
+        now = datetime(2024, 11, 2, 11, 30, tzinfo=weekend.JST)
+        store = {"20241102": {"picks": {"x-3": self.pick(6000)}}}
+        msg = weekend.collect_notifications(store, now)
+        self.assertIn("@momokuomomo-crypto", msg)
+        self.assertIn("東京5R", msg)
+        self.assertIn("6,000円", msg)
+        self.assertEqual(weekend.collect_notifications(store, now), "")  # 2回目は知らせない
+        store["20241102"]["picks"]["x-3"]["stake"] = 0
+        self.assertIn("見送りに変更", weekend.collect_notifications(store, now))
+        self.assertEqual(store["20241102"]["notified"], {})
+
+    def test_no_notice_after_post(self):
+        now = datetime(2024, 11, 2, 12, 30, tzinfo=weekend.JST)
+        store = {"20241102": {"picks": {"x-3": self.pick(6000)}}}
+        self.assertEqual(weekend.collect_notifications(store, now), "")
+
+
 class TestRun(unittest.TestCase):
     def test_run_writes_json_and_html(self):
         with tempfile.TemporaryDirectory() as tmp:
