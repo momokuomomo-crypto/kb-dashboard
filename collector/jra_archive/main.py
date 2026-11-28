@@ -140,8 +140,10 @@ def main(argv=None) -> int:
             print("  " + e)
         return 1 if len(report.errors) > max(10, report.saved // 10) else 0
 
-    today = date.today()
-    end = datetime.strptime(a.end, "%Y-%m-%d").date() if a.end else today - timedelta(days=1)
+    jst = datetime.utcnow() + timedelta(hours=9)
+    # 省略時の終了日：JSTで18時以降なら今日（その日のレースは終わっている）、それ前なら昨日
+    default_end = jst.date() if jst.hour >= 18 else jst.date() - timedelta(days=1)
+    end = datetime.strptime(a.end, "%Y-%m-%d").date() if a.end else default_end
     start = datetime.strptime(a.start, "%Y-%m-%d").date() if a.start else end - timedelta(days=7)
     root = Path(a.archive)
     deadline = time.monotonic() + a.budget_min * 60 if a.budget_min else None
