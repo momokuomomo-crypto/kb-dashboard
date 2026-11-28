@@ -37,24 +37,6 @@
     "odds_at": "10:26",
     "stake": 12000
    },
-   "202608050708-13": {
-    "horse_no": "13",
-    "horse_name": "レッドレベンディス",
-    "win_odds": "7.0",
-    "place_odds_min": "2.8",
-    "place_odds_max": "3.7",
-    "jockey": "武 豊",
-    "expected_value": 1.008,
-    "group": "watch",
-    "style": "差し追込",
-    "race_id": "202608050708",
-    "date": "20261128",
-    "venue": "京都",
-    "race_no": 8,
-    "post_time": "13:55",
-    "odds_at": "10:40",
-    "stake": 0
-   },
    "202605050812-3": {
     "horse_no": "3",
     "horse_name": "メイショウタバル",
