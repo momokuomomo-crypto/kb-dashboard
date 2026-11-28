@@ -25,6 +25,7 @@ concurrency:
 
 permissions:
   contents: write
+  issues: write # 新しく買いが出たらIssueでメンションして知らせる
 
 jobs:
   picks:
@@ -53,7 +54,7 @@ jobs:
       - name: Picks
         working-directory: picks
         run: |
-          args="--archive $GITHUB_WORKSPACE/archive --out $GITHUB_WORKSPACE"
+          args="--archive $GITHUB_WORKSPACE/archive --out $GITHUB_WORKSPACE --notify-file $RUNNER_TEMP/notify.md"
           if [ -n "${{ github.event.inputs.dates }}" ]; then args="$args --dates ${{ github.event.inputs.dates }}"; fi
           python -m weekend $args
       - name: Push
@@ -66,3 +67,16 @@ jobs:
           git commit -m "週末の買い目を更新"
           for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep 5; done
           exit 1
+      - name: Notify
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [ -f "$RUNNER_TEMP/notify.md" ] || { echo "通知なし"; exit 0; }
+          cat "$RUNNER_TEMP/notify.md"
+          gh label create 買い通知 --color 0b6e4f --repo "$GITHUB_REPOSITORY" 2>/dev/null || true
+          for n in $(gh issue list --repo "$GITHUB_REPOSITORY" --label 買い通知 --state open --json number -q '.[].number'); do
+            gh issue close "$n" --repo "$GITHUB_REPOSITORY" || true
+          done
+          gh issue create --repo "$GITHUB_REPOSITORY" --label 買い通知 \
+            --title "買い目 $(TZ=Asia/Tokyo date '+%m/%d %H:%M')" --body-file "$RUNNER_TEMP/notify.md"

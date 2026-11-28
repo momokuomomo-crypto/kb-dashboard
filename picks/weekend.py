@@ -42,6 +42,7 @@ from analysis_engine import ev
 from jra_client import JraClient
 
 JST = timezone(timedelta(hours=9))
+NOTIFY_USER = "momokuomomo-crypto"  # 買いが出たらIssueでメンションする（GitHubの通知・メールが届く）
 ODDS_TOP_CNAME = "pw15oli00/6D"
 ORL_RE = re.compile(r"pw15orl\d{2}(\d{2})(\d{4})(\d{2})(\d{2})(\d{8})/[0-9A-F]{2}")
 # 発売中は「ou」の後ろに「S3」などが付く（例 pw151ouS3052026050701…）。確定後は日付の後ろに「Z」が付く。発売中は付かないことがあるので、0〜3文字の英数字を許す
@@ -339,7 +340,8 @@ def render(store: dict, now: str) -> str:
     return "".join(parts)
 
 
-def run(archive: Path, out: Path, dates: List[str], client: Optional[JraClient] = None, now: Optional[datetime] = None) -> dict:
+def run(archive: Path, out: Path, dates: List[str], client: Optional[JraClient] = None, now: Optional[datetime] = None,
+        notify_file: Optional[Path] = None) -> dict:
     now = now or datetime.now(JST)
     client = client or JraClient()
     races = load_archive_races(archive)
@@ -382,10 +384,58 @@ def run(archive: Path, out: Path, dates: List[str], client: Optional[JraClient] 
                 by_race[c["race_id"]].append(c)
         for cands in by_race.values():
             allocate(cands)
+    notes = collect_notifications(store, now)
     out.mkdir(parents=True, exist_ok=True)
     store_path.write_text(json.dumps(store, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     (out / "picks.html").write_text(render(store, now.strftime("%Y-%m-%d %H:%M")), encoding="utf-8")
+    if notify_file and notes:
+        notify_file.write_text(notes, encoding="utf-8")
     return store
+
+
+def collect_notifications(store: dict, now: datetime) -> str:
+    """前回から新しく「買い」になった馬と、買いから外れた馬（発走前のもの）を通知用の文にする。
+    通知済みは各週の notified に {キー: レース・馬} で残し、同じ買いを2回知らせない。"""
+    new, dropped = [], []
+    hm = now.strftime("%H:%M")
+    today = now.strftime("%Y%m%d")
+    upcoming = lambda c: (c["date"], c.get("post_time") or "99:99") > (today, hm)
+    for wk in store.values():
+        sent = wk.setdefault("notified", {})
+        cur = {k: c for k, c in wk["picks"].items() if c.get("stake") and not c.get("locked")}
+        for k, c in cur.items():
+            if k not in sent and upcoming(c):
+                new.append(c)
+                sent[k] = {f: c.get(f, "") for f in ("date", "post_time", "venue", "race_no", "horse_no", "horse_name", "jockey")}
+        for k in [k for k in sent if k not in cur]:
+            c = sent[k]
+            if not isinstance(c, dict):
+                del sent[k]
+                continue
+            locked = wk["picks"].get(k, {}).get("locked")
+            if upcoming(c) and not locked:
+                dropped.append(c)
+                del sent[k]
+            elif not upcoming(c):
+                del sent[k]
+    if not new and not dropped:
+        return ""
+    wd = "月火水木金土日"
+    def line(c):
+        d = datetime.strptime(c["date"], "%Y%m%d")
+        return (f"- {d.month}/{d.day}({wd[d.weekday()]}) {c.get('post_time', '')}発走 {c['venue']}{c['race_no']}R "
+                f"{c['horse_no']} {c['horse_name']}（{c['jockey']}）")
+    parts = [f"@{NOTIFY_USER} 買い目が変わりました（{hm} のオッズ）", ""]
+    if new:
+        parts.append("**買い**")
+        parts += [f"{line(c)} 複勝{c['stake']:,}円・期待値{c['expected_value']:.2f}・{odds_line(c)}" for c in new]
+        parts.append("")
+    if dropped:
+        parts.append("**見送りに変更**（オッズが下がったため）")
+        parts += [line(c) for c in dropped]
+        parts.append("")
+    parts.append("最新は https://momokuomomo-crypto.github.io/kb-dashboard/picks.html")
+    return "\n".join(parts) + "\n"
 
 
 def main() -> int:
@@ -393,10 +443,11 @@ def main() -> int:
     ap.add_argument("--archive", type=Path, required=True)
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--dates", help="対象日（YYYYMMDD,カンマ区切り）。省略時は今日と明日（JST）")
+    ap.add_argument("--notify-file", type=Path, help="新しい買いがあれば通知文をここに書く")
     a = ap.parse_args()
     now = datetime.now(JST)
     dates = a.dates.split(",") if a.dates else [now.strftime("%Y%m%d"), (now + timedelta(days=1)).strftime("%Y%m%d")]
-    run(a.archive, a.out, dates)
+    run(a.archive, a.out, dates, notify_file=a.notify_file)
     return 0
 
 
