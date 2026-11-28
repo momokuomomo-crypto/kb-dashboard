@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>購入履歴</title>
+<style>
+:root{--bg:#fff;--fg:#1a1a1a;--mut:#666;--line:#ddd;--acc:#0b6e4f;--card:#f6f7f8;--neg:#b3261e}
+@media (prefers-color-scheme:dark){:root{--bg:#111;--fg:#eee;--mut:#aaa;--line:#333;--acc:#4fc79c;--card:#1b1d1f;--neg:#f2827a}}
+body{background:var(--bg);color:var(--fg);font-family:system-ui,sans-serif;margin:0 auto;max-width:860px;padding:16px;line-height:1.7}
+h1{font-size:24px;margin:8px 0}h2{font-size:19px;margin:28px 0 8px;border-bottom:2px solid var(--acc);padding-bottom:4px}
+.card{background:var(--card);border-radius:8px;padding:12px 16px;margin:10px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.grid .card{margin:0}.k{font-size:12px;color:var(--mut)}.v{font-size:20px;font-weight:600}
+table{border-collapse:collapse;width:100%;font-size:14px}th,td{border-bottom:1px solid var(--line);padding:6px 4px;text-align:left;vertical-align:top;white-space:nowrap}
+td.note{white-space:normal;min-width:160px}
+.n{text-align:right}.mut{color:var(--mut);font-size:13px}.scroll{overflow-x:auto}
+.pos{color:var(--acc)}.ng{color:var(--neg)}a{color:var(--acc)}
+</style></head><body>
+<h1>購入履歴</h1>
+<p class="mut">実際に買った馬券と結果の記録です。<a href="./">ダッシュボード</a> ・ <a href="picks.html">週末の買い目</a> ・ <a href="summary.html">これまでのまとめ</a></p>
+
+<h2>ルールどおりの買い（資金20万円から）</h2>
+<div id="rule-kpi" class="grid"></div>
+<p class="mut">資金20万円でスタート（2026/11/28）。残高が14万円まで減ったら止めて見直し。</p>
+<div class="scroll"><table id="rule-tbl"></table></div>
+
+<h2>遊び（ルール外）</h2>
+<p class="mut">ルールの外で買った分です。上の資金・回収率には含めません。</p>
+<div id="fun-kpi" class="grid"></div>
+<div class="scroll"><table id="fun-tbl"></table></div>
+
+<p class="mut" style="margin-top:28px">結果は月曜にまとめて更新します（買った時点のオッズも記録）。元データ：<a href="bets.csv">bets.csv</a></p>
+<p id="err" class="ng"></p>
+
+<script>
+const START = 200000, STOP = 140000;
+const yen = n => (n < 0 ? "−" : "") + Math.abs(n).toLocaleString("ja-JP") + "円";
+const sgn = n => (n > 0 ? "+" : "") + yen(n);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function parseCSV(text) {
+  const rows = []; let row = [], f = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i+1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+    else if (c === '"') q = true;
+    else if (c === ",") { row.push(f); f = ""; }
+    else if (c === "\n" || c === "\r") { if (c === "\r" && text[i+1] === "\n") i++; row.push(f); rows.push(row); row = []; f = ""; }
+    else f += c;
+  }
+  if (f || row.length) { row.push(f); rows.push(row); }
+  const head = rows.shift().map(h => h.trim());
+  return rows.filter(r => r.some(x => x.trim())).map(r => Object.fromEntries(head.map((h, i) => [h, (r[i] ?? "").trim()])));
+}
+
+const settled = b => b.result !== "";
+function kpis(list, extra) {
+  const done = list.filter(settled), pend = list.filter(b => !settled(b));
+  const stake = done.reduce((s, b) => s + b.stake, 0), pay = done.reduce((s, b) => s + b.payout, 0);
+  const hits = done.filter(b => b.payout > 0).length;
+  const cards = [
+    ["収支", `<span class="${pay - stake >= 0 ? "pos" : "ng"}">${sgn(pay - stake)}</span>`],
+    ["回収率", stake ? (pay / stake * 100).toFixed(1) + "%" : "−"],
+    ["購入 → 払戻", `${yen(stake)} → ${yen(pay)}`],
+    ["的中", `${hits} / ${done.length}点`],
+    ...extra,
+  ];
+  if (pend.length) cards.push(["結果待ち", `${pend.length}点・${yen(pend.reduce((s, b) => s + b.stake, 0))}`]);
+  return cards.map(([k, v]) => `<div class="card"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
+}
+
+function table(list, withBal) {
+  let bal = START;
+  const h = `<tr><th>日付</th><th>レース</th><th>馬番</th><th>馬</th><th>騎手</th><th>券種</th><th class="n">購入</th><th>購入時オッズ</th><th>結果</th><th class="n">払戻</th><th class="n">収支</th>${withBal ? '<th class="n">残高</th>' : ""}<th>メモ</th></tr>`;
+  const body = list.map(b => {
+    const ok = settled(b), pl = b.payout - b.stake;
+    if (ok && withBal) bal += pl;
+    const date = b.date.slice(5).replace("-", "/") + (b.post_time ? ` ${b.post_time}` : "");
+    return `<tr><td>${esc(date)}</td><td>${esc(b.race)}</td><td>${esc(b.horse_no)}</td><td>${esc(b.horse)}</td><td>${esc(b.jockey)}</td><td>${esc(b.bet_type)}</td>`
+      + `<td class="n">${yen(b.stake)}</td><td>${esc(b.odds_at_purchase)}${b.ev_at_purchase ? ` <span class="mut">EV${esc(b.ev_at_purchase)}</span>` : ""}</td>`
+      + `<td>${ok ? esc(b.result) : '<span class="mut">結果待ち</span>'}</td><td class="n">${ok ? yen(b.payout) : ""}</td>`
+      + `<td class="n ${pl >= 0 ? "pos" : "ng"}">${ok ? sgn(pl) : ""}</td>${withBal ? `<td class="n">${ok ? yen(bal) : ""}</td>` : ""}<td class="note mut">${esc(b.note)}</td></tr>`;
+  }).join("");
+  const sum = list.filter(settled).reduce((s, b) => s + b.payout - b.stake, 0);
+  const foot = `<tr><th colspan="10">合計</th><th class="n ${sum >= 0 ? "pos" : "ng"}">${sgn(sum)}</th>${withBal ? `<th class="n">${yen(START + sum)}</th>` : ""}<th></th></tr>`;
+  return list.length ? h + body + foot : '<tr><td class="mut">まだ記録はありません。</td></tr>';
+}
+
+fetch("bets.csv", {cache: "no-store"}).then(r => r.text()).then(t => {
+  const all = parseCSV(t).map(b => ({...b, stake: +b.stake || 0, payout: +b.payout || 0}))
+    .sort((a, b) => (a.date + a.post_time).localeCompare(b.date + b.post_time));
+  const rule = all.filter(b => b.category !== "遊び"), fun = all.filter(b => b.category === "遊び");
+  const bal = START + rule.filter(settled).reduce((s, b) => s + b.payout - b.stake, 0);
+  document.getElementById("rule-kpi").innerHTML = kpis(rule, [["資金残高", `${yen(bal)}`], ["見直しラインまで", yen(bal - STOP)]]);
+  document.getElementById("rule-tbl").innerHTML = table(rule, true);
+  document.getElementById("fun-kpi").innerHTML = kpis(fun, []);
+  document.getElementById("fun-tbl").innerHTML = table(fun, false);
+}).catch(e => { document.getElementById("err").textContent = "記録の読み込みに失敗しました：" + e; });
+</script>
+</body></html>
