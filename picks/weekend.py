@@ -311,19 +311,28 @@ def render(store: dict, now: str) -> str:
         "という目安です（期待値は複勝オッズにほぼ比例するとして計算）。4騎手が乗るレースは、発走の約40分前に最新オッズでこのページを自動で更新します（ほかに当日9時・12時）。直前に期待値が上がって買いに加わることもあります。発走後は買った時点の買い目のまま残します。</p>",
         "<p class='mut'><a href='./'>ダッシュボードへ戻る</a> ・ <a href='summary.html'>これまでのまとめ</a></p>",
     ]
+    # 発走が過ぎたレースは出さない（終わった週も出さない）。ページを開いたあとに発走時刻を過ぎた行はブラウザ側で隠す
+    today, hm = now[:10].replace("-", ""), now[11:16]
+    upcoming = lambda c: (c["date"], c.get("post_time") or "99:99") > (today, hm)
+    shown = False
     for wk in sorted(store, reverse=True):
         data = store[wk]
+        rows = sorted((c for c in data["picks"].values() if upcoming(c)),
+                      key=lambda c: (c["date"], c.get("post_time") or "99", c["venue"], c["race_no"], -c["stake"]))
+        if not rows and (shown or wk < weekend_key(today)):
+            continue
+        shown = True
         parts.append(f"<h2>{wk[4:6]}/{wk[6:]}（土）の週</h2>")
-        rows = sorted(data["picks"].values(), key=lambda c: (c["date"], c.get("post_time") or "99", c["venue"], c["race_no"], -c["stake"]))
         if not rows:
-            parts.append("<p class='mut'>今のところ該当なし（見送り）。</p>")
+            parts.append("<p class='mut'>これから発走するレースに該当なし（見送り）。</p>")
             continue
         body = []
         for c in rows:
             d = datetime.strptime(c["date"], "%Y%m%d")
             res = c.get("result", "")
+            end = f"{c['date'][:4]}-{c['date'][4:6]}-{c['date'][6:]}T{c['post_time']}:00+09:00" if c.get("post_time") else ""
             body.append(
-                f"<tr><td>{d.month}/{d.day}({wd[d.weekday()]}){f"<br><b>{escape(c['post_time'])}</b>" if c.get('post_time') else ''}</td><td>{escape(c['venue'])}{c['race_no']}R</td>"
+                f"<tr data-post='{end}'><td>{d.month}/{d.day}({wd[d.weekday()]}){f"<br><b>{escape(c['post_time'])}</b>" if c.get('post_time') else ''}</td><td>{escape(c['venue'])}{c['race_no']}R</td>"
                 f"<td>{escape(c['horse_no'])} {escape(c['horse_name'])}{"<span class='tag'>逃げ先行</span>" if c.get('style') == '逃げ先行' else ''}</td><td>{escape(c['jockey'])}</td>"
                 f"<td class='n'>{escape(c['win_odds'])}</td><td class='n'>{escape(c['place_odds_min'])}-{escape(c['place_odds_max'])}{f"<br><span class='mut'>{escape(c['odds_at'])}時点</span>" if c.get('odds_at') else ''}</td>"
                 f"<td class='n'>{c['expected_value']:.2f}</td>"
@@ -332,10 +341,12 @@ def render(store: dict, now: str) -> str:
             )
         total = sum(c["stake"] for c in rows)
         parts.append(
-            f"<p>購入 {sum(1 for c in rows if c['stake'])}点・{total:,}円</p><div class='scroll'><table><thead><tr><th>日付・発走</th><th>レース</th>"
+            f"<p>これから発走する分の購入 {sum(1 for c in rows if c['stake'])}点・{total:,}円</p><div class='scroll'><table><thead><tr><th>日付・発走</th><th>レース</th>"
             "<th>馬</th><th>騎手</th><th class='n'>単勝</th><th class='n'>複勝</th><th class='n'>期待値</th><th>買い</th><th>直前の目安（複勝下限）</th>"
             f"<th>結果</th></tr></thead><tbody>{''.join(body)}</tbody></table></div>"
         )
+    parts.append("<script>(function(){function h(){var t=Date.now();document.querySelectorAll('tr[data-post]').forEach(function(r){"
+                 "var p=Date.parse(r.getAttribute('data-post'));if(p&&p<=t)r.style.display='none';});}h();setInterval(h,60000);})();</script>")
     parts.append("</body></html>")
     return "".join(parts)
 
