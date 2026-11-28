@@ -89,8 +89,11 @@ class TestLiveOdds(unittest.TestCase):
             live_odds.run(Path(d), "20241102", until, client=FakeClient(), clock=clock,
                           sleep=clock.sleep, on_prerace=on_prerace)
         # 同じ発走時刻（12:15）のレースが並んでも、1回の更新でまとめて新しくなるので頼むのは1回
-        self.assertEqual(len(calls), 1)
-        self.assertTrue(datetime(2024, 11, 2, 11, 35, tzinfo=JST) <= calls[0][1] < datetime(2024, 11, 2, 11, 36, tzinfo=JST))
+        # 9時・12時の定時更新と、発走40分前（11:35）の更新
+        self.assertEqual([c[0] for c in calls if c[0] in ("09:00", "12:00")], ["09:00", "12:00"])
+        races = [c for c in calls if c[0] not in ("09:00", "12:00")]
+        self.assertEqual(len(races), 1)
+        self.assertTrue(datetime(2024, 11, 2, 11, 35, tzinfo=JST) <= races[0][1] < datetime(2024, 11, 2, 11, 36, tzinfo=JST))
 
 
 if __name__ == "__main__":

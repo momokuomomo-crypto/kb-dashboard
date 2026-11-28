@@ -29,6 +29,7 @@ from weekend import JST, discover, jockey_group, parse_odds_page, parse_post_tim
 SNAP_MINUTES = (60, 30, 10, 5, 3)  # 発走の何分前に取るか
 SNAP_CLOCKS = ("09:00", "12:00")  # 当日のこの時刻にも全レース（発走前のもの）を取る
 PRERACE_MIN = 40  # 4騎手（単勝50倍未満）が乗るレースは発走のこの分数前に買い目ページを更新する
+REFRESH_CLOCKS = ("09:00", "12:00")  # この時刻にも買い目ページを更新する（定時実行が遅れることがあるため、ここから頼む）
 PRERACE_GAP_MIN = 10  # 更新を頼んだあと、この分数は次を頼まない（1回の更新で全レースが新しくなる）
 CLOCK_LATE_MIN = 30  # 時刻の記録は30分遅れまで（ジョブの起動遅れ用）
 COLUMNS = ["race_id", "date", "venue", "race_no", "post_time", "point", "minutes_before", "fetched_at",
@@ -142,6 +143,13 @@ def run(out: Path, date: str, until: datetime, client=None,
         pending = [rid for rid, p in posts.items() if p > now]
         if not pending or now >= until:
             break
+        for c in REFRESH_CLOCKS:
+            h, mi = map(int, c.split(":"))
+            at = now.replace(hour=h, minute=mi, second=0, microsecond=0)
+            if c not in prerace_done and at <= now < at + timedelta(minutes=CLOCK_LATE_MIN):
+                prerace_done.add(c)
+                if on_prerace(c, date):
+                    last_prerace = clock()
         for rid in sorted(pending, key=lambda r: posts[r]):
             if rid not in prerace_done and clock() >= posts[rid] - timedelta(minutes=PRERACE_MIN):
                 prerace_done.add(rid)
@@ -203,7 +211,7 @@ def make_prerace_dispatch(repo: str, token: str, workflow: str = "weekend_picks.
     def dispatch(rid: str, date: str) -> bool:
         r = requests.post(f"{api}/actions/workflows/{workflow}/dispatches", headers=headers,
                           json={"ref": "main", "inputs": {"dates": date}}, timeout=30)
-        print(f"発走{PRERACE_MIN}分前の買い目更新: {rid} → {r.status_code}")
+        print(f"買い目更新を依頼（{rid}）→ {r.status_code}")
         return r.status_code == 204
 
     return dispatch
